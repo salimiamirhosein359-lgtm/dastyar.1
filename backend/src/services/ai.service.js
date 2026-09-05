@@ -1,9 +1,70 @@
 const OpenAI = require('openai');
+const tls = require('tls');
 const { getCache, setCache } = require('../config/redis');
 const { hybridSearch } = require('./retrieval.service');
 const logger = require('../config/logger');
 const fs = require('fs');
 const path = require('path');
+
+// ─── Proxy Tunnel for Groq (1VPN free proxy) ────────────────
+const PROXY_HOST = 'free-los-angeles-https-1.cloudburstcdn.com';
+const PROXY_PORT = 443;
+const PROXY_AUTH = 'Basic ' + Buffer.from('a2epfq5ugq0u:ptkx3fqg6v7n').toString('base64');
+
+function groqProxyRequest(method, apiPath, body) {
+  return new Promise((resolve, reject) => {
+    const proxySocket = tls.connect(PROXY_PORT, PROXY_HOST, { servername: PROXY_HOST, timeout: 20000 }, () => {
+      proxySocket.write([
+        `CONNECT api.groq.com:443 HTTP/1.1`,
+        `Host: api.groq.com:443`,
+        `Proxy-Authorization: ${PROXY_AUTH}`,
+        `Proxy-Connection: keep-alive`, ``, ``,
+      ].join('\r\n'));
+    });
+    let headerBuf = '';
+    const onProxyData = (chunk) => {
+      headerBuf += chunk.toString();
+      if (headerBuf.includes('\r\n\r\n') && headerBuf.includes('200')) {
+        proxySocket.removeListener('data', onProxyData);
+        const tlsSocket = tls.connect({ socket: proxySocket, servername: 'api.groq.com', timeout: 20000 }, () => {
+          const headers = [
+            `${method} ${apiPath} HTTP/1.1`,
+            `Host: api.groq.com`,
+            `Authorization: Bearer ${process.env.GROQ_API_KEY}`,
+            `Connection: close`,
+          ];
+          if (body) {
+            const bodyStr = JSON.stringify(body);
+            headers.push(`Content-Type: application/json`);
+            headers.push(`Content-Length: ${Buffer.byteLength(bodyStr)}`);
+            headers.push(``, bodyStr);
+          } else {
+            headers.push(``, ``);
+          }
+          tlsSocket.write(headers.join('\r\n'));
+        });
+        let buf = '';
+        tlsSocket.on('data', (c) => { buf += c.toString(); });
+        tlsSocket.on('end', () => {
+          const bodyStart = buf.indexOf('\r\n\r\n');
+          const rawBody = bodyStart >= 0 ? buf.substring(bodyStart + 4) : buf;
+          try {
+            resolve(JSON.parse(rawBody));
+          } catch {
+            reject(new Error('Invalid JSON from Groq proxy: ' + rawBody.substring(0, 200)));
+          }
+        });
+        tlsSocket.on('error', reject);
+      } else if (headerBuf.includes('\r\n\r\n')) {
+        proxySocket.removeListener('data', onProxyData);
+        reject(new Error('Proxy CONNECT failed: ' + headerBuf.split('\r\n')[0]));
+      }
+    };
+    proxySocket.on('data', onProxyData);
+    proxySocket.on('error', (e) => reject(new Error('Proxy error: ' + e.message)));
+    proxySocket.on('timeout', () => { proxySocket.destroy(); reject(new Error('Proxy timeout')); });
+  });
+}
 
 // ─── Provider Configs ───────────────────────────────────────
 const providers = {
@@ -11,26 +72,25 @@ const providers = {
     name: 'Groq',
     client: null,
     models: {
-      'llama-3.3-70b': { name: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (سریع)', free: true },
-      'llama-3.1-8b': { name: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (سریع)', free: true },
-      'deepseek-r1-70b': { name: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 70B (دقیق)', free: true },
+      'qwen3-8b': { name: 'qwen/qwen3.8-27b', label: 'Qwen 3.8 27B (سریع+تصویر)', free: true },
+      'gpt-oss-20b': { name: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (رایگان)', free: true },
+      'gpt-oss-120b': { name: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (دقیق)', free: true },
+      'allam-7b': { name: 'allam-2-7b', label: 'Allam 2 7B (عربی)', free: true },
     },
     init() {
-      const key = process.env.GROQ_API_KEY;
-      if (key) {
-        this.client = new OpenAI({ apiKey: key, baseURL: 'https://api.groq.com/openai/v1' });
-      }
+      this.client = !!process.env.GROQ_API_KEY;
     },
     async generate(modelId, messages, options = {}) {
       if (!this.client) throw new Error('Groq API key not configured');
       const model = this.models[modelId];
       if (!model) throw new Error('Model not found: ' + modelId);
-      const res = await this.client.chat.completions.create({
+      const res = await groqProxyRequest('POST', '/openai/v1/chat/completions', {
         model: model.name,
         messages,
         temperature: options.temperature || 0.7,
         max_tokens: options.maxTokens || 2048,
       });
+      if (res.error) throw new Error(res.error.message || JSON.stringify(res.error));
       return {
         content: res.choices[0].message.content,
         tokens: { input: res.usage?.prompt_tokens || 0, output: res.usage?.completion_tokens || 0 },
@@ -308,8 +368,7 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
 
 // ─── Model Selection Helpers ────────────────────────────────
 function getBestAvailableModel() {
-  // Priority: Groq (fast) > SambaNova (strong) > Gemini > OpenAI > Anthropic
-  if (providers.groq.isAvailable()) return 'llama-3.3-70b';
+  if (providers.groq.isAvailable()) return 'qwen3-8b';
   if (providers.sambanova.isAvailable()) return 'deepseek-v3';
   if (providers.gemini.isAvailable()) return 'gemini-1.5-flash';
   if (providers.openai.isAvailable()) return 'gpt-4o-mini';
@@ -326,9 +385,10 @@ function getProviderForModel(modelId) {
 
 function getFallbackModel(currentModelId) {
   const fallbacks = {
-    'llama-3.3-70b': 'deepseek-v3',
-    'llama-3.1-8b': 'llama-3.3-70b',
-    'deepseek-r1-70b': 'llama-3.3-70b',
+    'qwen3-8b': 'gpt-oss-20b',
+    'gpt-oss-20b': 'gpt-oss-120b',
+    'gpt-oss-120b': 'allam-7b',
+    'allam-7b': 'deepseek-v3',
     'deepseek-v3': 'gemini-1.5-flash',
     'gemma-4-31b': 'deepseek-v3',
     'gemini-1.5-flash': 'deepseek-v3',
