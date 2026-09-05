@@ -78,19 +78,43 @@ export default function ChatPage() {
       } catch { return; }
     }
     const tempUser: Message = { id: 'tmp-u-' + Date.now(), role: 'user', content: text, createdAt: new Date().toISOString() };
-    setMessages((m) => [...m, tempUser]);
+    const tempAssistant: Message = { id: 'tmp-a-' + Date.now(), role: 'assistant', content: '', createdAt: new Date().toISOString() };
+    setMessages((m) => [...m, tempUser, tempAssistant]);
     setSending(true);
     try {
-      const res = await api.chat.send(convId!, text, model);
-      setMessages((m) => [...m.filter((x) => x.id !== tempUser.id), tempUser, res.message]);
-      setRefreshKey((k) => k + 1);
+      await api.chat.stream(convId!, text, model,
+        (chunk) => {
+          setMessages((m) => {
+            const updated = [...m];
+            const last = updated[updated.length - 1];
+            if (last && last.id.startsWith('tmp-a-')) {
+              updated[updated.length - 1] = { ...last, content: last.content + chunk };
+            }
+            return updated;
+          });
+        },
+        (done) => {
+          setMessages((m) => {
+            const updated = [...m];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].id.startsWith('tmp-a-')) {
+              updated[lastIdx] = done.message || { ...updated[lastIdx], id: 'msg-' + Date.now() };
+            }
+            return updated;
+          });
+          setRefreshKey((k) => k + 1);
+        }
+      );
     } catch (e: any) {
-      setMessages((m) => [...m, {
-        id: 'err-' + Date.now(),
-        role: 'assistant',
-        content: 'متأسفانه خطایی رخ داد: ' + (e.message || 'پاسخ ناموفق بود'),
-        createdAt: new Date().toISOString(),
-      }]);
+      setMessages((m) => {
+        const filtered = m.filter((x) => !x.id.startsWith('tmp-a-'));
+        return [...filtered, {
+          id: 'err-' + Date.now(),
+          role: 'assistant',
+          content: 'متأسفانه خطایی رخ داد: ' + (e.message || 'پاسخ ناموفق بود'),
+          createdAt: new Date().toISOString(),
+        }];
+      });
     } finally { setSending(false); }
   };
 

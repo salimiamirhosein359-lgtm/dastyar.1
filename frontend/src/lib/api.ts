@@ -14,6 +14,44 @@ async function request(path: string, options: RequestInit = {}) {
   return data;
 }
 
+async function streamRequest(path: string, body: Record<string, any>, onChunk: (chunk: string) => void, onDone?: (data: any) => void) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No reader available');
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.type === 'chunk') onChunk(parsed.content);
+        if (parsed.type === 'done' && onDone) onDone(parsed);
+        if (parsed.type === 'error') throw new Error(parsed.error);
+      } catch (e: any) {
+        if (e.message && !e.message.includes('JSON')) throw e;
+      }
+    }
+  }
+}
+
 export const api = {
   auth: {
     register: (body: { name: string; email: string; password: string }) => request('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
@@ -31,6 +69,8 @@ export const api = {
   chat: {
     send: (conversationId: string, content: string, model?: string) =>
       request(`/chat/send/${conversationId}`, { method: 'POST', body: JSON.stringify({ content, model }) }),
+    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void) =>
+      streamRequest(`/chat/stream/${conversationId}`, { content, model }, onChunk, onDone),
     models: () => request('/chat/models'),
   },
   documents: {

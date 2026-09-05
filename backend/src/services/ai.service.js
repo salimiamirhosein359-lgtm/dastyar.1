@@ -11,6 +11,63 @@ const PROXY_HOST = 'free-los-angeles-https-1.cloudburstcdn.com';
 const PROXY_PORT = 443;
 const PROXY_AUTH = 'Basic ' + Buffer.from('a2epfq5ugq0u:ptkx3fqg6v7n').toString('base64');
 
+function groqProxyStream(apiPath, body, onChunk) {
+  return new Promise((resolve, reject) => {
+    const proxySocket = tls.connect(PROXY_PORT, PROXY_HOST, { servername: PROXY_HOST, timeout: 30000 }, () => {
+      proxySocket.write([
+        `CONNECT api.groq.com:443 HTTP/1.1`,
+        `Host: api.groq.com:443`,
+        `Proxy-Authorization: ${PROXY_AUTH}`,
+        `Proxy-Connection: keep-alive`, ``, ``,
+      ].join('\r\n'));
+    });
+    let headerBuf = '';
+    const onProxyData = (chunk) => {
+      headerBuf += chunk.toString();
+      if (headerBuf.includes('\r\n\r\n') && headerBuf.includes('200')) {
+        proxySocket.removeListener('data', onProxyData);
+        const tlsSocket = tls.connect({ socket: proxySocket, servername: 'api.groq.com', timeout: 30000 }, () => {
+          const bodyStr = JSON.stringify(body);
+          const req = [
+            `POST ${apiPath} HTTP/1.1`,
+            `Host: api.groq.com`,
+            `Authorization: Bearer ${process.env.GROQ_API_KEY}`,
+            `Content-Type: application/json`,
+            `Content-Length: ${Buffer.byteLength(bodyStr)}`,
+            `Connection: close`,
+            `Accept: text/event-stream`,
+            ``, bodyStr,
+          ].join('\r\n');
+          tlsSocket.write(req);
+        });
+        let buf = '';
+        let headersParsed = false;
+        tlsSocket.on('data', (c) => {
+          if (!headersParsed) {
+            buf += c.toString();
+            const idx = buf.indexOf('\r\n\r\n');
+            if (idx >= 0) {
+              headersParsed = true;
+              const leftover = buf.substring(idx + 4);
+              if (leftover) onChunk(leftover);
+            }
+          } else {
+            onChunk(c.toString());
+          }
+        });
+        tlsSocket.on('end', () => resolve());
+        tlsSocket.on('error', reject);
+      } else if (headerBuf.includes('\r\n\r\n')) {
+        proxySocket.removeListener('data', onProxyData);
+        reject(new Error('Proxy CONNECT failed: ' + headerBuf.split('\r\n')[0]));
+      }
+    };
+    proxySocket.on('data', onProxyData);
+    proxySocket.on('error', (e) => reject(new Error('Proxy error: ' + e.message)));
+    proxySocket.on('timeout', () => { proxySocket.destroy(); reject(new Error('Proxy timeout')); });
+  });
+}
+
 function groqProxyRequest(method, apiPath, body) {
   return new Promise((resolve, reject) => {
     const proxySocket = tls.connect(PROXY_PORT, PROXY_HOST, { servername: PROXY_HOST, timeout: 20000 }, () => {
@@ -94,6 +151,40 @@ const providers = {
       return {
         content: res.choices[0].message.content,
         tokens: { input: res.usage?.prompt_tokens || 0, output: res.usage?.completion_tokens || 0 },
+        model: modelId,
+        provider: 'groq',
+      };
+    },
+    async stream(modelId, messages, onChunk, options = {}) {
+      if (!this.client) throw new Error('Groq API key not configured');
+      const model = this.models[modelId];
+      if (!model) throw new Error('Model not found: ' + modelId);
+      const body = {
+        model: model.name,
+        messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 2048,
+        stream: true,
+      };
+      let fullContent = '';
+      await groqProxyStream('/openai/v1/chat/completions', body, (chunk) => {
+        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+        for (const line of lines) {
+          const data = line.replace('data: ', '').trim();
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullContent += delta;
+              onChunk(delta);
+            }
+          } catch {}
+        }
+      });
+      return {
+        content: fullContent,
+        tokens: { input: 0, output: 0 },
         model: modelId,
         provider: 'groq',
       };
@@ -366,6 +457,26 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
   }
 }
 
+async function streamAIResponse(userMessage, conversationContext, sourceDocs, modelId, userId, onChunk) {
+  if (!modelId) modelId = getBestAvailableModel();
+  const provider = getProviderForModel(modelId);
+  if (!provider) throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست.');
+
+  const systemPrompt = buildSystemPrompt(sourceDocs, null);
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...conversationContext,
+    { role: 'user', content: userMessage },
+  ];
+
+  if (provider.stream) {
+    return await provider.stream(modelId, messages, onChunk);
+  }
+  const result = await provider.generate(modelId, messages);
+  onChunk(result.content);
+  return result;
+}
+
 // ─── Model Selection Helpers ────────────────────────────────
 function getBestAvailableModel() {
   if (providers.groq.isAvailable()) return 'qwen3-8b';
@@ -436,6 +547,7 @@ Object.values(providers).forEach(p => { try { p.init(); } catch {} });
 
 module.exports = {
   generateAIResponse,
+  streamAIResponse,
   searchDocuments,
   getAvailableModels,
   getUserDir,

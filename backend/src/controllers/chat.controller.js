@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const { generateAIResponse, searchDocuments, getAvailableModels, saveChatHistory, loadChatHistory } = require('../services/ai.service');
+const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, saveChatHistory, loadChatHistory } = require('../services/ai.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -79,6 +79,8 @@ async function streamMessage(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
 
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId, userId },
@@ -86,7 +88,7 @@ async function streamMessage(req, res) {
     });
 
     if (!conversation) {
-      res.write('data: {"error":"گفتگو یافت نشد"}\n\n');
+      res.write('data: ' + JSON.stringify({ type: 'error', error: 'گفتگو یافت نشد' }) + '\n\n');
       return res.end();
     }
 
@@ -96,41 +98,41 @@ async function streamMessage(req, res) {
 
     const contextMessages = conversation.messages.reverse().slice(0, 20);
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
-
     const sources = await searchDocuments(content, userId);
-    const aiResponse = await generateAIResponse(content, context, sources, model, userId);
 
-    const assistantMessage = await prisma.message.create({
+    let fullContent = '';
+    await streamAIResponse(content, context, sources, model, userId, (chunk) => {
+      fullContent += chunk;
+      res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
+    });
+
+    const saved = await prisma.message.create({
       data: {
         conversationId,
         role: 'assistant',
-        content: aiResponse.content,
-        sources: JSON.stringify(aiResponse.sources || []),
-        inputTokens: aiResponse.tokens?.input || null,
-        outputTokens: aiResponse.tokens?.output || null,
-        model: aiResponse.model || model
+        content: fullContent,
+        sources: JSON.stringify(sources.map(d => ({ title: d.documentTitle || 'Unknown', documentId: d.documentId || null, chunkIndex: d.chunkIndex }))),
+        model: model || 'auto'
       }
     });
 
-    const allMessages = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'asc' }
-    });
+    const allMessages = await prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
     try { saveChatHistory(userId, conversationId, allMessages); } catch {}
 
-    res.write('data: ' + JSON.stringify({
-      type: 'complete',
-      message: assistantMessage,
-      sources: aiResponse.sources || [],
-      tokens: aiResponse.tokens || null,
-      model: aiResponse.model || model,
-      provider: aiResponse.provider || null
-    }) + '\n\n');
+    const msgCount = await prisma.message.count({ where: { conversationId } });
+    if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {
+      const title = content.length > 50 ? content.substring(0, 50) + '...' : content;
+      await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+    }
+    if (model && model !== conversation.model) {
+      await prisma.conversation.update({ where: { id: conversationId }, data: { model } });
+    }
 
-    res.end('data: [DONE]\n\n');
+    res.write('data: ' + JSON.stringify({ type: 'done', message: saved, model: model || 'auto' }) + '\n\n');
+    res.end();
   } catch (error) {
     logger.error('streamMessage error:', error.message);
-    res.write('data: {"error":"خطا در دریافت پاسخ"}\n\n');
+    res.write('data: ' + JSON.stringify({ type: 'error', error: error.message || 'خطا در دریافت پاسخ' }) + '\n\n');
     res.end();
   }
 }
