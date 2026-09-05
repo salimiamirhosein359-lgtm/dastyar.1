@@ -17,7 +17,7 @@ const chatRoutes = require('./routes/chat.routes');
 const documentRoutes = require('./routes/document.routes');
 
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', 'loopback');
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
