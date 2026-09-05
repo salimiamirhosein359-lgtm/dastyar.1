@@ -3,10 +3,23 @@ const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModel
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
+async function getDocumentContent(docIds, userId) {
+  if (!docIds || docIds.length === 0) return [];
+  const docs = await prisma.document.findMany({
+    where: { id: { in: docIds }, userId },
+    select: { id: true, title: true, content: true, chunks: { select: { content: true }, orderBy: { chunkIndex: 'asc' }, take: 5 } }
+  });
+  return docs.map(d => ({
+    documentTitle: d.title,
+    documentId: d.id,
+    content: d.chunks.length > 0 ? d.chunks.map(c => c.content).join('\n\n') : (d.content || '').substring(0, 2000)
+  }));
+}
+
 async function sendMessage(req, res) {
   try {
     const { conversationId } = req.params;
-    const { content, model } = req.body;
+    const { content, model, documentIds } = req.body;
     const userId = req.user.id;
 
     const conversation = await prisma.conversation.findUnique({
@@ -23,7 +36,9 @@ async function sendMessage(req, res) {
     const contextMessages = conversation.messages.reverse().slice(0, 20);
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
 
-    const sources = await searchDocuments(content, userId);
+    let sources = await searchDocuments(content, userId);
+    const docSources = await getDocumentContent(documentIds, userId);
+    sources = [...docSources, ...sources];
 
     const aiResponse = await generateAIResponse(content, context, sources, model, userId);
 
@@ -84,7 +99,7 @@ async function sendMessage(req, res) {
 async function streamMessage(req, res) {
   try {
     const { conversationId } = req.params;
-    const { content, model } = req.body;
+    const { content, model, documentIds } = req.body;
     const userId = req.user.id;
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -109,7 +124,9 @@ async function streamMessage(req, res) {
 
     const contextMessages = conversation.messages.reverse().slice(0, 20);
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
-    const sources = await searchDocuments(content, userId);
+    let sources = await searchDocuments(content, userId);
+    const docSources = await getDocumentContent(documentIds, userId);
+    sources = [...docSources, ...sources];
 
     let fullContent = '';
     await streamAIResponse(content, context, sources, model, userId, (chunk) => {

@@ -37,6 +37,7 @@ export default function ChatPage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchActive, setSearchActive] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function ChatPage() {
     setSearching(false);
   };
 
-  const send = async (text: string) => {
+  const send = async (text: string, docIds: string[] = []) => {
     let convId = currentId;
     if (!convId) {
       try {
@@ -112,10 +113,9 @@ export default function ChatPage() {
       } catch { return; }
     }
 
-    const searchKeywords = ['جستجو', 'search', 'گوگل', 'google', 'وب', 'web', 'اینترنت', 'internet', 'پیدا کن', 'پیدا کردن'];
-    const shouldSearch = searchKeywords.some(kw => text.toLowerCase().includes(kw));
-    if (shouldSearch) {
-      searchWeb(text.replace(/جستجو|search|گوگل|google|وب|web|اینترنت|internet|پیدا کن|پیدا کردن/gi, '').trim() || text);
+    if (searchActive) {
+      const searchQuery = text.replace(/جستجو|search|گوگل|google|وب|web|اینترنت|internet|پیدا کن|پیدا کردن/gi, '').trim() || text;
+      searchWeb(searchQuery);
     }
 
     const tempUser: Message = { id: 'tmp-u-' + Date.now(), role: 'user', content: text, createdAt: new Date().toISOString() };
@@ -144,7 +144,8 @@ export default function ChatPage() {
             return updated;
           });
           setRefreshKey((k) => k + 1);
-        }
+        },
+        docIds.length > 0 ? docIds : undefined
       );
     } catch (e: any) {
       setMessages((m) => {
@@ -280,7 +281,12 @@ export default function ChatPage() {
 
         {/* Input */}
         <div className="sticky bottom-0 pt-2 pb-1 bg-paper">
-          <ChatInput onSend={send} loading={sending} />
+          <ChatInput
+            onSend={send}
+            loading={sending}
+            searchActive={searchActive}
+            onSearchToggle={() => setSearchActive(!searchActive)}
+          />
         </div>
       </main>
     </div>
