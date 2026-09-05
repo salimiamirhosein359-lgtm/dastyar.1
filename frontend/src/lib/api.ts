@@ -81,5 +81,6 @@ export const api = {
     status: (id: string) => request(`/documents/${id}/status`),
     delete: (id: string) => request(`/documents/${id}`, { method: 'DELETE' }),
   },
+  search: (query: string) => request(`/search?q=${encodeURIComponent(query)}`),
   health: () => request('/health'),
 };
