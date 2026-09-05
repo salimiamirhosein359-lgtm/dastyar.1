@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -23,6 +23,8 @@ export default function Documents() {
   const [fileName, setFileName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -32,8 +34,67 @@ export default function Documents() {
 
   useEffect(() => { if (user) refresh(); }, [user]);
 
+  const readFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  const handleFile = async (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const baseName = file.name.replace(/\.[^/.]+$/, '');
+
+    if (ext === 'txt' || ext === 'md' || ext === 'csv' || ext === 'json' || ext === 'js' || ext === 'ts' || ext === 'py' || ext === 'html' || ext === 'css') {
+      const content = await readFile(file);
+      setFileName(baseName);
+      setText(content);
+      setMsg(`فایل ${file.name} خوانده شد. روی «آپلود» کلیک کن.`);
+    } else if (ext === 'pdf') {
+      setMsg('پردازش PDF در سرور... ابتدا فایل را آپلود کنید.');
+      setFileName(baseName);
+      setText(`[PDF_UPLOAD:${file.name}]`);
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        setUploading(true);
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/documents/upload-file', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setMsg('PDF آپلود و پردازش شد!');
+        refresh();
+        setText(''); setFileName('');
+      } catch (e: any) {
+        setMsg('خطا در آپلود PDF: ' + e.message);
+        setText('');
+      } finally { setUploading(false); }
+      return;
+    } else if (ext === 'docx' || ext === 'doc') {
+      setMsg('فایل Word پشتیبانی نمی‌شود. لطفاً متن را کپی کنید.');
+      return;
+    } else {
+      setMsg('فرمت پشتیبانی نمی‌شود. فایل‌های متنی (.txt, .md, .pdf) مجاز هستند.');
+      return;
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
   const upload = async () => {
     if (!text.trim() || !fileName.trim()) { setMsg('متن و نام فایل لازم است'); return; }
+    if (text.startsWith('[PDF_UPLOAD:')) { setMsg('PDF از قبل در حال پردازش است.'); return; }
     setUploading(true); setMsg('');
     try {
       const res = await api.documents.upload({ content: text, fileName, fileType: 'text/plain' });
@@ -73,7 +134,7 @@ export default function Documents() {
         <h1 className="text-2xl font-extrabold text-ink mb-1">اسناد من</h1>
         <p className="text-ink-secondary text-sm mb-8">فایل‌هایی که آپلود می‌کنی، مبنای پاسخ‌های دستیار قرار می‌گیرن</p>
 
-        {/* Upload */}
+        {/* Upload Area */}
         <div className="card mb-8">
           <h2 className="font-extrabold text-ink mb-4 flex items-center gap-2">
             <svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -81,20 +142,47 @@ export default function Documents() {
             </svg>
             افزودن سند جدید
           </h2>
+
+          {/* Drop zone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 mb-4 ${
+              dragOver ? 'border-gold bg-gold/5' : 'border-stroke hover:border-gold/40 hover:bg-gold/5'
+            }`}
+          >
+            <svg className="w-10 h-10 text-ink-muted mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            <p className="text-ink-secondary text-sm mb-1">فایل را اینجا رها کنید یا کلیک کنید</p>
+            <p className="text-ink-muted text-xs">پشتیبانی: .txt, .md, .csv, .json, .js, .ts, .py, .html, .css, .pdf</p>
+          </div>
+          <input ref={fileRef} type="file" className="hidden" accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
+
+          {/* Or paste text */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-stroke" />
+            <span className="text-ink-muted text-xs">یا متن را بچسبانید</span>
+            <div className="flex-1 h-px bg-stroke" />
+          </div>
+
           <input
             className="input-field mb-3"
-            placeholder="نام فایل (مثلاً: جزوه-ریاضی)"
+            placeholder="نام سند (مثلاً: جزوه-ریاضی)"
             value={fileName}
             onChange={(e) => setFileName(e.target.value)}
           />
           <textarea
-            className="input-field mb-4"
+            className="input-field mb-4 font-mono text-sm"
             rows={5}
-            placeholder="متن سند را اینجا بچسبان..."
-            value={text}
+            placeholder="متن سند را اینجا بچسبانید..."
+            value={text.startsWith('[PDF_UPLOAD:') ? ' در حال آپلود PDF...' : text}
             onChange={(e) => setText(e.target.value)}
+            readOnly={text.startsWith('[PDF_UPLOAD:')}
           />
-          <button onClick={upload} disabled={uploading} className="btn-primary">
+          <button onClick={upload} disabled={uploading || !text.trim() || !fileName.trim()} className="btn-primary">
             {uploading ? (
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -102,7 +190,7 @@ export default function Documents() {
               </span>
             ) : 'آپلود و ایندکس'}
           </button>
-          {msg && <p className="text-sm text-ink-secondary mt-3">{msg}</p>}
+          {msg && <p className={`text-sm mt-3 ${msg.includes('خطا') ? 'text-red-500' : 'text-ink-secondary'}`}>{msg}</p>}
         </div>
 
         {/* List */}
