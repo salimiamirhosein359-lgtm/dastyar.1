@@ -5,32 +5,48 @@ const { uploadDocument, getDocuments, getDocument, deleteDocument, getDocumentSt
 
 router.use(authMiddleware);
 
-router.post('/upload-file', express.raw({ type: '*/*', limit: '20mb' }), (req, res, next) => {
-  const contentType = req.headers['content-type'] || 'text/plain';
-  const fileName = req.headers['x-filename'] || 'upload.txt';
-  req.file = {
-    buffer: req.body,
-    originalname: fileName,
-    mimetype: contentType,
-    size: req.body.length
-  };
+router.post('/upload-file', (req, res, next) => {
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
+  req.on('end', () => {
+    const buffer = Buffer.concat(chunks);
+    const contentType = req.headers['content-type'] || 'text/plain';
+    const fileName = decodeURIComponent(req.headers['x-filename'] || 'upload.txt');
 
-  if (fileName.endsWith('.pdf')) {
-    try {
-      const pdfParse = require('pdf-parse');
-      pdfParse(req.body).then(data => {
-        req.file.buffer = Buffer.from(data.text, 'utf-8');
-        req.file.mimetype = 'text/plain';
-        uploadDocument(req, res);
-      }).catch(err => {
-        res.status(400).json({ error: 'خطا در خواندن PDF: ' + err.message });
-      });
-    } catch {
-      res.status(400).json({ error: 'پشتیبانی PDF نصب نیست. pdf-parse را نصب کنید.' });
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: 'فایل خالی است' });
     }
-  } else {
-    uploadDocument(req, res);
-  }
+    if (buffer.length > 20 * 1024 * 1024) {
+      return res.status(400).json({ error: 'فایل بیش از 20 مگابایت است' });
+    }
+
+    req.file = {
+      buffer,
+      originalname: fileName,
+      mimetype: contentType,
+      size: buffer.length
+    };
+
+    if (fileName.endsWith('.pdf')) {
+      try {
+        const pdfParse = require('pdf-parse');
+        pdfParse(buffer).then(data => {
+          req.file.buffer = Buffer.from(data.text, 'utf-8');
+          req.file.mimetype = 'text/plain';
+          uploadDocument(req, res);
+        }).catch(err => {
+          res.status(400).json({ error: 'خطا در خواندن PDF: ' + err.message });
+        });
+      } catch {
+        res.status(400).json({ error: 'پشتیبانی PDF نصب نیست.' });
+      }
+    } else {
+      uploadDocument(req, res);
+    }
+  });
+  req.on('error', (err) => {
+    res.status(500).json({ error: 'خطا در دریافت فایل' });
+  });
 });
 
 router.post('/upload', express.raw({ type: 'text/*', limit: '10mb' }), (req, res, next) => {

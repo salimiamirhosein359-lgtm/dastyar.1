@@ -67,10 +67,10 @@ export const api = {
     favorites: () => request('/conversations/favorites'),
   },
   chat: {
-    send: (conversationId: string, content: string, model?: string) =>
-      request(`/chat/send/${conversationId}`, { method: 'POST', body: JSON.stringify({ content, model }) }),
-    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void) =>
-      streamRequest(`/chat/stream/${conversationId}`, { content, model }, onChunk, onDone),
+    send: (conversationId: string, content: string, model?: string, docIds?: string[]) =>
+      request(`/chat/send/${conversationId}`, { method: 'POST', body: JSON.stringify({ content, model, documentIds: docIds }) }),
+    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[]) =>
+      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds }, onChunk, onDone),
     models: () => request('/chat/models'),
   },
   documents: {
