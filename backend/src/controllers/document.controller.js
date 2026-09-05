@@ -10,7 +10,15 @@ async function uploadDocument(req, res) {
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
     const userId = req.user.id;
-    const content = file.buffer.toString('utf-8');
+    let content = '';
+
+    if (file.mimetype === 'application/pdf') {
+      content = file.buffer.toString('latin1');
+    } else if (file.mimetype.includes('word') || file.mimetype.includes('document')) {
+      content = file.buffer.toString('utf-8');
+    } else {
+      content = file.buffer.toString('utf-8');
+    }
 
     const document = await prisma.document.create({
       data: {

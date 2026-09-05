@@ -23,11 +23,11 @@ async function hybridSearch(query, userId, topK = 5) {
   const keywordResults = await prisma.$queryRawUnsafe(`
     SELECT d.id AS doc_id, d.title, d.file_name AS "fileName", d.file_type AS "fileType",
            c.id AS chunk_id, c.content AS chunk_content, c.chunk_index AS "chunkIndex",
-           ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', $1)) AS rank
+           ts_rank(to_tsvector('simple', c.content), plainto_tsquery('simple', $1)) AS rank
     FROM "Chunk" c
     JOIN "Document" d ON c.document_id = d.id
     WHERE d.user_id = $2 AND d.status = 'ready'
-      AND to_tsvector('english', c.content) @@ plainto_tsquery('english', $1)
+      AND to_tsvector('simple', c.content) @@ plainto_tsquery('simple', $1)
     ORDER BY rank DESC
     LIMIT $3
   `, query, userId, topK);
@@ -77,11 +77,11 @@ async function searchByKeywords(query, userId, limit = 5) {
   return prisma.$queryRawUnsafe(`
     SELECT d.id AS doc_id, d.title, d.file_name AS "fileName",
            c.id AS chunk_id, c.content AS chunk_content, c.chunk_index AS "chunkIndex",
-           ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', $1)) AS rank
+           ts_rank(to_tsvector('simple', c.content), plainto_tsquery('simple', $1)) AS rank
     FROM "Chunk" c
     JOIN "Document" d ON c.document_id = d.id
     WHERE d.user_id = $2 AND d.status = 'ready'
-      AND to_tsvector('english', c.content) @@ plainto_tsquery('english', $1)
+      AND to_tsvector('simple', c.content) @@ plainto_tsquery('simple', $1)
     ORDER BY rank DESC
     LIMIT $3
   `, query, userId, limit);
