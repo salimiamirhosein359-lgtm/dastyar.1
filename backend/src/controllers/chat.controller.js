@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, saveChatHistory, loadChatHistory, providers, getProviderForModel } = require('../services/ai.service');
+const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, providers, getProviderForModel } = require('../services/ai.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -54,14 +54,6 @@ async function sendMessage(req, res) {
       }
     });
 
-    // Save to user folder
-    const allMessages = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'asc' }
-    });
-    try { saveChatHistory(userId, conversationId, allMessages); } catch {}
-
-    // Update conversation title if first message
     const msgCount = await prisma.message.count({ where: { conversationId } });
     if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {
       try {
@@ -147,9 +139,6 @@ async function streamMessage(req, res) {
         model: model || 'auto'
       }
     });
-
-    const allMessages = await prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
-    try { saveChatHistory(userId, conversationId, allMessages); } catch {}
 
     const msgCount = await prisma.message.count({ where: { conversationId } });
     if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {

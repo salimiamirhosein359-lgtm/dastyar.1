@@ -3,8 +3,6 @@ const tls = require('tls');
 const { getCache, setCache } = require('../config/redis');
 const { hybridSearch } = require('./retrieval.service');
 const logger = require('../config/logger');
-const fs = require('fs');
-const path = require('path');
 
 // ─── Proxy Tunnel for Groq (1VPN free proxy) ────────────────
 const PROXY_HOST = 'free-los-angeles-https-1.cloudburstcdn.com';
@@ -346,33 +344,6 @@ const providers = {
   },
 };
 
-// ─── User Data Folders ──────────────────────────────────────
-const USERS_DIR = process.env.USERS_DATA_DIR || '/var/data/dastyar/users';
-
-function getUserDir(userId) {
-  const dir = path.join(USERS_DIR, userId);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.mkdirSync(path.join(dir, 'chats'), { recursive: true });
-    fs.mkdirSync(path.join(dir, 'documents'), { recursive: true });
-  }
-  return dir;
-}
-
-function saveChatHistory(userId, conversationId, messages) {
-  const dir = getUserDir(userId);
-  const filePath = path.join(dir, 'chats', `${conversationId}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(messages, null, 2), 'utf-8');
-}
-
-function loadChatHistory(userId, conversationId) {
-  const filePath = path.join(getUserDir(userId), 'chats', `${conversationId}.json`);
-  if (fs.existsSync(filePath)) {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  }
-  return [];
-}
-
 // ─── System Prompt ──────────────────────────────────────────
 function buildSystemPrompt(sourceDocs, userName) {
   let prompt = `تو دستیار هوش مصنوعی فارسی هستی به نام «دستیار».
@@ -403,16 +374,26 @@ function buildSystemPrompt(sourceDocs, userName) {
 }
 
 // ─── Main Function ──────────────────────────────────────────
-async function generateAIResponse(userMessage, conversationContext, sourceDocs = [], modelId = null, userId = null) {
-  // Determine best available model
+async function generateAIResponse(userMessage, conversationContext, sourceDocs = [], modelId = null, userId = null, triedModels = new Set()) {
   if (!modelId) {
     modelId = getBestAvailableModel();
   }
 
-  const provider = getProviderForModel(modelId);
-  if (!provider) throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست. لطفاً API key تنظیم کنید.');
+  if (!modelId || triedModels.has(modelId)) {
+    throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست. لطفاً API key تنظیم کنید.');
+  }
+  triedModels.add(modelId);
 
-  const userName = null; // Could be fetched from DB
+  const provider = getProviderForModel(modelId);
+  if (!provider) {
+    const fallback = getFallbackModel(modelId, triedModels);
+    if (fallback) {
+      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId, triedModels);
+    }
+    throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست.');
+  }
+
+  const userName = null;
   const systemPrompt = buildSystemPrompt(sourceDocs, userName);
 
   const messages = [
@@ -421,9 +402,9 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
     { role: 'user', content: userMessage },
   ];
 
-  // Cache check
+  const contextHash = JSON.stringify(conversationContext.map(m => m.content?.slice(0, 50)));
   const cacheKey = 'resp:' + require('crypto').createHash('md5')
-    .update(userMessage + JSON.stringify(sourceDocs.map(d => d.chunkId || d.content?.slice(0, 100))))
+    .update(userMessage + contextHash + JSON.stringify(sourceDocs.map(d => d.chunkId || d.content?.slice(0, 100))))
     .digest('hex');
   const cached = await getCache(cacheKey);
   if (cached) return { ...cached, cached: true };
@@ -448,11 +429,10 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
   } catch (error) {
     logger.error(`AI error [${provider.name}/${modelId}]:`, error.message);
 
-    // Fallback to next provider
-    const fallback = getFallbackModel(modelId);
+    const fallback = getFallbackModel(modelId, triedModels);
     if (fallback) {
       logger.info(`Falling back to ${fallback.provider}/${fallback.modelId}`);
-      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId);
+      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId, triedModels);
     }
 
     if (error.status === 429) throw new Error('محدودیت تعداد درخواست. لطفاً چند لحظه صبر کنید.');
@@ -482,11 +462,12 @@ async function streamAIResponse(userMessage, conversationContext, sourceDocs, mo
 
 // ─── Model Selection Helpers ────────────────────────────────
 function getBestAvailableModel() {
-  if (providers.groq.isAvailable()) return 'qwen3-8b';
-  if (providers.sambanova.isAvailable()) return 'deepseek-v3';
+  if (providers.groq.isAvailable()) return 'gpt-oss-120b';
   if (providers.gemini.isAvailable()) return 'gemini-1.5-flash';
+  if (providers.groq.isAvailable()) return 'qwen3-8b';
   if (providers.openai.isAvailable()) return 'gpt-4o-mini';
   if (providers.anthropic.isAvailable()) return 'claude-3-haiku';
+  if (providers.sambanova.isAvailable()) return 'deepseek-v3';
   return null;
 }
 
@@ -497,22 +478,22 @@ function getProviderForModel(modelId) {
   return null;
 }
 
-function getFallbackModel(currentModelId) {
+function getFallbackModel(currentModelId, triedModels = new Set()) {
   const fallbacks = {
     'qwen3-8b': 'gpt-oss-20b',
     'gpt-oss-20b': 'gpt-oss-120b',
     'gpt-oss-120b': 'allam-7b',
-    'allam-7b': 'deepseek-v3',
+    'allam-7b': 'gemma-4-31b',
     'deepseek-v3': 'gemini-1.5-flash',
-    'gemma-4-31b': 'deepseek-v3',
-    'gemini-1.5-flash': 'deepseek-v3',
+    'gemma-4-31b': 'gpt-oss-120b',
+    'gemini-1.5-flash': 'gpt-oss-20b',
     'gemini-1.5-pro': 'gemini-1.5-flash',
-    'gpt-4o-mini': 'deepseek-v3',
+    'gpt-4o-mini': 'gpt-oss-20b',
     'gpt-4o': 'gpt-4o-mini',
-    'claude-3-haiku': 'deepseek-v3',
+    'claude-3-haiku': 'gpt-oss-20b',
   };
   const fallbackId = fallbacks[currentModelId];
-  if (fallbackId && getProviderForModel(fallbackId)) {
+  if (fallbackId && !triedModels.has(fallbackId) && getProviderForModel(fallbackId)) {
     return { modelId: fallbackId, provider: getProviderForModel(fallbackId) };
   }
   return null;
@@ -553,9 +534,6 @@ module.exports = {
   streamAIResponse,
   searchDocuments,
   getAvailableModels,
-  getUserDir,
-  saveChatHistory,
-  loadChatHistory,
   providers,
   getProviderForModel,
 };

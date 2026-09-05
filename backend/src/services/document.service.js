@@ -1,34 +1,75 @@
 const { PrismaClient } = require('@prisma/client');
 const { getEmbedding } = require('./embedding.service');
 const logger = require('../config/logger');
+const pdfParse = require('pdf-parse');
 
 const prisma = new PrismaClient();
 
 function chunkText(text, maxTokens = 512, overlap = 0.15) {
-  const paragraphs = text.split(/\n\s*\n/);
-  const chunks = [];
-  let currentChunk = '';
-  let currentTokens = 0;
+  if (!text || text.trim().length === 0) return [];
 
-  for (const para of paragraphs) {
-    const paraTokens = Math.ceil(para.split(/\s+/).length * 1.3);
-    if (currentTokens + paraTokens > maxTokens && currentChunk) {
-      chunks.push(currentChunk.trim());
-      const overlapWords = Math.floor(currentChunk.split(/\s+/).length * overlap);
-      const words = currentChunk.split(/\s+/);
-      currentChunk = words.slice(-overlapWords).join(' ') + '\n\n' + para;
-      currentTokens = Math.ceil(currentChunk.split(/\s+/).length * 1.3);
-    } else {
-      currentChunk += (currentChunk ? '\n\n' : '') + para;
-      currentTokens += paraTokens;
+  let chunks = [];
+  const paragraphs = text.split(/\n\s*\n/);
+
+  if (paragraphs.length > 1) {
+    let currentChunk = '';
+    let currentTokens = 0;
+
+    for (const para of paragraphs) {
+      const paraTokens = Math.ceil(para.split(/\s+/).length * 1.3);
+      if (currentTokens + paraTokens > maxTokens && currentChunk) {
+        chunks.push(currentChunk.trim());
+        const overlapWords = Math.floor(currentChunk.split(/\s+/).length * overlap);
+        const words = currentChunk.split(/\s+/);
+        currentChunk = words.slice(-overlapWords).join(' ') + '\n\n' + para;
+        currentTokens = Math.ceil(currentChunk.split(/\s+/).length * 1.3);
+      } else {
+        currentChunk += (currentChunk ? '\n\n' : '') + para;
+        currentTokens += paraTokens;
+      }
+    }
+    if (currentChunk.trim()) chunks.push(currentChunk.trim());
+  }
+
+  if (chunks.length <= 1 && text.length > maxTokens * 5) {
+    const sentences = text.split(/(?<=[.!?؟])\s+/);
+    chunks = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      const sentenceTokens = Math.ceil(sentence.split(/\s+/).length * 1.3);
+      if (sentenceTokens > maxTokens) {
+        if (currentChunk.trim()) chunks.push(currentChunk.trim());
+        currentChunk = '';
+        const words = sentence.split(/\s+/);
+        for (let i = 0; i < words.length; i += Math.floor(maxTokens / 1.3)) {
+          chunks.push(words.slice(i, i + Math.floor(maxTokens / 1.3)).join(' '));
+        }
+      } else if (Math.ceil(currentChunk.split(/\s+/).length * 1.3) + sentenceTokens > maxTokens && currentChunk) {
+        chunks.push(currentChunk.trim());
+        const overlapWords = Math.floor(currentChunk.split(/\s+/).length * overlap);
+        const prevWords = currentChunk.split(/\s+/);
+        currentChunk = prevWords.slice(-overlapWords).join(' ') + ' ' + sentence;
+      } else {
+        currentChunk += (currentChunk ? ' ' : '') + sentence;
+      }
+    }
+    if (currentChunk.trim()) chunks.push(currentChunk.trim());
+  }
+
+  if (chunks.length === 0) {
+    const words = text.split(/\s+/);
+    for (let i = 0; i < words.length; i += Math.floor(maxTokens / 1.3)) {
+      chunks.push(words.slice(i, i + Math.floor(maxTokens / 1.3)).join(' '));
     }
   }
 
-  if (currentChunk.trim()) {
-    chunks.push(currentChunk.trim());
-  }
-
   return chunks;
+}
+
+async function parsePdf(buffer) {
+  const data = await pdfParse(buffer);
+  return data.text || '';
 }
 
 async function processDocument(documentId) {
@@ -36,15 +77,36 @@ async function processDocument(documentId) {
     const doc = await prisma.document.findUnique({ where: { id: documentId } });
     if (!doc) throw new Error('Document not found');
 
-    const text = doc.content || '';
+    let text = doc.content || '';
+
+    if (doc.fileType === 'application/pdf') {
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const tempPrisma = new PrismaClient();
+        const rawDoc = await tempPrisma.$queryRawUnsafe(
+          `SELECT content FROM "Document" WHERE id = $1`, documentId
+        );
+        if (rawDoc && rawDoc[0] && rawDoc[0].content) {
+          const pdfBuffer = Buffer.from(rawDoc[0].content, 'latin1');
+          text = await parsePdf(pdfBuffer);
+        }
+        await tempPrisma.$disconnect();
+      } catch (pdfErr) {
+        logger.error(`PDF parsing failed for ${documentId}: ${pdfErr.message}`);
+      }
+    }
+
+    if (!text || text.trim().length === 0) {
+      text = doc.content || '';
+    }
+
     const chunks = chunkText(text);
 
-    const embeddingStrings = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunkContent = chunks[i];
       const tokenCount = Math.ceil(chunkContent.split(/\s+/).length * 1.3);
 
-      const chunk = await prisma.chunk.create({
+      await prisma.chunk.create({
         data: {
           documentId,
           content: chunkContent,
@@ -52,8 +114,6 @@ async function processDocument(documentId) {
           tokenCount
         }
       });
-
-      embeddingStrings.push(chunkContent);
     }
 
     await prisma.document.update({
@@ -100,4 +160,4 @@ async function embedChunks(documentId) {
   logger.info(`All chunks embedded for document ${documentId}`);
 }
 
-module.exports = { chunkText, processDocument, embedChunks };
+module.exports = { chunkText, processDocument, embedChunks, parsePdf };
