@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, providers, getProviderForModel } = require('../services/ai.service');
+const { searchWeb } = require('../services/search.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -40,7 +41,14 @@ async function sendMessage(req, res) {
     const docSources = await getDocumentContent(documentIds, userId);
     sources = [...docSources, ...sources];
 
-    const aiResponse = await generateAIResponse(content, context, sources, model, userId);
+    let webResults = [];
+    try {
+      webResults = await searchWeb(content, 5);
+    } catch (e) {
+      logger.error('Web search failed:', e.message);
+    }
+
+    const aiResponse = await generateAIResponse(content, context, sources, model, userId, new Set(), webResults);
 
     const saved = await prisma.message.create({
       data: {
@@ -123,6 +131,17 @@ async function streamMessage(req, res) {
     let sources = await searchDocuments(content, userId);
     const docSources = await getDocumentContent(documentIds, userId);
     sources = [...docSources, ...sources];
+
+    let webResults = [];
+    try {
+      webResults = await searchWeb(content, 5);
+    } catch (e) {
+      logger.error('Web search failed:', e.message);
+    }
+
+    if (webResults.length > 0) {
+      res.write('data: ' + JSON.stringify({ type: 'webResults', results: webResults }) + '\n\n');
+    }
 
     let fullContent = '';
     await streamAIResponse(content, context, sources, model, userId, (chunk) => {

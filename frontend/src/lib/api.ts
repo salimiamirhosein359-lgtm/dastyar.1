@@ -14,7 +14,7 @@ async function request(path: string, options: RequestInit = {}) {
   return data;
 }
 
-async function streamRequest(path: string, body: Record<string, any>, onChunk: (chunk: string) => void, onDone?: (data: any) => void) {
+async function streamRequest(path: string, body: Record<string, any>, onChunk: (chunk: string) => void, onDone?: (data: any) => void, onWebResults?: (results: any[]) => void) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -43,6 +43,7 @@ async function streamRequest(path: string, body: Record<string, any>, onChunk: (
       try {
         const parsed = JSON.parse(data);
         if (parsed.type === 'chunk') onChunk(parsed.content);
+        if (parsed.type === 'webResults' && onWebResults) onWebResults(parsed.results);
         if (parsed.type === 'done' && onDone) onDone(parsed);
         if (parsed.type === 'error') throw new Error(parsed.error);
       } catch (e: any) {
@@ -69,8 +70,8 @@ export const api = {
   chat: {
     send: (conversationId: string, content: string, model?: string, docIds?: string[]) =>
       request(`/chat/send/${conversationId}`, { method: 'POST', body: JSON.stringify({ content, model, documentIds: docIds }) }),
-    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[]) =>
-      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds }, onChunk, onDone),
+    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[], onWebResults?: (results: any[]) => void) =>
+      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds }, onChunk, onDone, onWebResults),
     models: () => request('/chat/models'),
   },
   documents: {

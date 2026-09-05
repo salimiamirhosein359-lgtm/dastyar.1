@@ -145,7 +145,8 @@ export default function ChatPage() {
           });
           setRefreshKey((k) => k + 1);
         },
-        docIds.length > 0 ? docIds : undefined
+        docIds.length > 0 ? docIds : undefined,
+        (results) => setWebResults(results)
       );
     } catch (e: any) {
       setMessages((m) => {

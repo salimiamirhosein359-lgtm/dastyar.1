@@ -345,7 +345,7 @@ const providers = {
 };
 
 // ─── System Prompt ──────────────────────────────────────────
-function buildSystemPrompt(sourceDocs, userName) {
+function buildSystemPrompt(sourceDocs, userName, webResults = []) {
   let prompt = `تو دستیار هوش مصنوعی فارسی هستی به نام «دستیار».
 قوانین مهم:
 - همیشه فقط به فارسی یا انگلیسی پاسخ بده. هرگز به عربی، ترکی یا هیچ زبان دیگری پاسخ نده.
@@ -360,13 +360,23 @@ function buildSystemPrompt(sourceDocs, userName) {
   }
 
   if (sourceDocs && sourceDocs.length > 0) {
-    prompt += `\n\nتو به اسناد زیر دسترسی داری. فقط بر اساس این اسناد پاسخ بده. اگر جواب در اسناد نبود، صادقانه بگو.`;
+    prompt += `\n\nتو به اسناد زیر دسترسی داری. بر اساس این اسناد پاسخ بده.`;
     prompt += `\nاز فرمت [منبع: عنوان سند] برای استناد استفاده کن.`;
     prompt += `\n\nاسناد مرجع:\n`;
     sourceDocs.forEach((doc, i) => {
       prompt += `\n--- سند ${i + 1}: ${doc.documentTitle || 'ناشناس'} ---\n${doc.content}\n`;
     });
-  } else {
+  }
+
+  if (webResults && webResults.length > 0) {
+    prompt += `\n\nنتایج جستجوی وب:\n`;
+    webResults.forEach((r, i) => {
+      prompt += `\n--- نتیجه ${i + 1}: ${r.title} ---\n${r.snippet}\nلینک: ${r.url}\n`;
+    });
+    prompt += `\nاز اطلاعات وب برای تکمیل پاسخ استفاده کن. حتماً منابع وب را با [منبع: لینک] ذکر کن.`;
+  }
+
+  if ((!sourceDocs || sourceDocs.length === 0) && (!webResults || webResults.length === 0)) {
     prompt += `\n\nپاسخ‌های دقیق و علمی بده. اگر اطلاعات دقیق نداری، صادقانه بگو.`;
   }
 
@@ -374,7 +384,7 @@ function buildSystemPrompt(sourceDocs, userName) {
 }
 
 // ─── Main Function ──────────────────────────────────────────
-async function generateAIResponse(userMessage, conversationContext, sourceDocs = [], modelId = null, userId = null, triedModels = new Set()) {
+async function generateAIResponse(userMessage, conversationContext, sourceDocs = [], modelId = null, userId = null, triedModels = new Set(), webResults = []) {
   if (!modelId) {
     modelId = getBestAvailableModel();
   }
@@ -388,13 +398,13 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
   if (!provider) {
     const fallback = getFallbackModel(modelId, triedModels);
     if (fallback) {
-      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId, triedModels);
+      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId, triedModels, webResults);
     }
     throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست.');
   }
 
   const userName = null;
-  const systemPrompt = buildSystemPrompt(sourceDocs, userName);
+  const systemPrompt = buildSystemPrompt(sourceDocs, userName, webResults);
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -440,12 +450,12 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
   }
 }
 
-async function streamAIResponse(userMessage, conversationContext, sourceDocs, modelId, userId, onChunk) {
+async function streamAIResponse(userMessage, conversationContext, sourceDocs, modelId, userId, onChunk, webResults = []) {
   if (!modelId) modelId = getBestAvailableModel();
   const provider = getProviderForModel(modelId);
   if (!provider) throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست.');
 
-  const systemPrompt = buildSystemPrompt(sourceDocs, null);
+  const systemPrompt = buildSystemPrompt(sourceDocs, null, webResults);
   const messages = [
     { role: 'system', content: systemPrompt },
     ...conversationContext,
