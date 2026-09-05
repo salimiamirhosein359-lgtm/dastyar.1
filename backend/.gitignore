@@ -1,0 +1,1 @@
+.env\r\n.env.local\r\nnode_modules/\r\n*.log\r\n.DS_Store\r\ndist/\r\nbuild/\r\n*.sqlite\r\ncoverage/\r\n

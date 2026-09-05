@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.production
+.env.development
+node_modules/
+.next/
+*.pyc
+fix_*.py
+fix_*.js
+fix_*.ps1
+raw_test.py
+final_test.py
+check_groq.py
+test_*.py
+list_models.py
+f.py
+fixbom.py
