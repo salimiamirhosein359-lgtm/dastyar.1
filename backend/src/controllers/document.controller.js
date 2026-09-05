@@ -24,9 +24,23 @@ async function uploadDocument(req, res) {
       }
     });
 
-    processDocument(document.id)
-      .then(() => embedChunks(document.id))
-      .catch(err => logger.error('Background processing error:', err.message));
+    const processWithRetry = async (docId, retries = 3) => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          await processDocument(docId);
+          await embedChunks(docId);
+          return;
+        } catch (err) {
+          logger.error(`Document ${docId} processing attempt ${attempt}/${retries} failed: ${err.message}`);
+          if (attempt === retries) {
+            await prisma.document.update({ where: { id: docId }, data: { status: 'error' } });
+          } else {
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+          }
+        }
+      }
+    };
+    processWithRetry(document.id).catch(err => logger.error('Document processing failed:', err.message));
 
     res.status(201).json({
       message: 'Document uploaded successfully',

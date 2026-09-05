@@ -129,14 +129,17 @@ async function getFavorites(req, res) {
 async function shareConversation(req, res) {
   try {
     const { id } = req.params;
-    const { isVisible = true } = req.body;
+    const { isVisible = true, expiresInDays = 7 } = req.body;
     const conversation = await prisma.conversation.findUnique({ where: { id, userId: req.user.id } });
     if (!conversation) return res.status(404).json({ error: 'گفتجو یافت نشد' });
     const token = generateShareToken();
-    await prisma.share.create({ data: { conversationId: id, sharedBy: req.user.id, token, isVisible } });
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + Math.min(expiresInDays, 30));
+    await prisma.share.create({ data: { conversationId: id, sharedBy: req.user.id, token, isVisible, expiresAt } });
     res.status(201).json({
       message: 'لینک اشتراک‌گذاری ساخته شد',
-      shareUrl: (process.env.FRONTEND_URL || 'http://localhost:3000') + '/share/' + token
+      shareUrl: (process.env.FRONTEND_URL || 'http://localhost:3000') + '/share/' + token,
+      expiresAt
     });
   } catch (error) {
     logger.error('Share error:', error);
@@ -158,6 +161,9 @@ async function getSharedConversation(req, res) {
       }
     });
     if (!share || !share.isVisible) return res.status(404).json({ error: 'اشتراک‌گذاری یافت نشد یا غیرفعال شده' });
+    if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
+      return res.status(410).json({ error: 'لینک اشتراک‌گذاری منقضی شده است' });
+    }
     res.json({ conversation: share.conversation });
   } catch (error) {
     logger.error('Get shared conversation error:', error);
@@ -193,8 +199,19 @@ async function getAllUsers(req, res) {
 
 async function deleteUser(req, res) {
   try {
-    await prisma.user.delete({ where: { id: req.params.id } });
-    res.json({ message: 'کاربر با موفقیت حذف شد' });
+    const targetId = req.params.id;
+    if (targetId === req.user.id) {
+      return res.status(400).json({ error: 'نمی‌توانید خودتان را حذف کنید' });
+    }
+    const targetUser = await prisma.user.findUnique({ where: { id: targetId }, select: { role: true } });
+    if (!targetUser) return res.status(404).json({ error: 'کاربر یافت نشد' });
+    if (targetUser.role === 'ADMIN') {
+      return res.status(403).json({ error: 'حذف ادمین مجاز نیست' });
+    }
+    await prisma.conversation.deleteMany({ where: { userId: targetId } });
+    await prisma.favorite.deleteMany({ where: { userId: targetId } });
+    await prisma.user.delete({ where: { id: targetId } });
+    res.json({ message: 'کاربر و اطلاعاتش حذف شد' });
   } catch (error) {
     logger.error('Delete user error:', error);
     res.status(500).json({ error: 'خطایی در سرور رخ داده است' });

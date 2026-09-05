@@ -79,6 +79,7 @@ model Share {
   sharedBy       String
   token          String       @unique
   isVisible      Boolean      @default(true)
+  expiresAt      DateTime?
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   @@index([token])

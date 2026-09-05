@@ -5,12 +5,18 @@ const prisma = new PrismaClient();
 
 async function register(req, res) {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'نام، ایمیل و رمز عبور الزامی است' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'رمز عبور باید حداقل ۸ کاراکتر باشد' });
+    }
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(409).json({ error: 'این ایمیل قبلاً ثبت شده است' });
     const hashed = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, role: role || 'STUDENT' },
+      data: { name, email, password: hashed, role: 'STUDENT' },
       select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, createdAt: true }
     });
     const token = generateToken(user);
