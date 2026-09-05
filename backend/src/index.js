@@ -58,6 +58,18 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api', chatRoutes);
 
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: 'Query required' });
+    const { searchWeb } = require('./services/search.service');
+    const results = await searchWeb(q, 5);
+    res.json({ results });
+  } catch (error) {
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 app.use(notFound);
 app.use(errorHandler);
 

@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, saveChatHistory, loadChatHistory } = require('../services/ai.service');
+const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, saveChatHistory, loadChatHistory, providers, getProviderForModel } = require('../services/ai.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -49,8 +49,19 @@ async function sendMessage(req, res) {
     // Update conversation title if first message
     const msgCount = await prisma.message.count({ where: { conversationId } });
     if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {
-      const title = content.length > 50 ? content.substring(0, 50) + '...' : content;
-      await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+      try {
+        const titleModels = ['qwen3-8b', 'gpt-oss-20b', 'allam-7b'];
+        const titleModel = titleModels.find(m => getProviderForModel(m)) || model || 'qwen3-8b';
+        const titleResult = await (getProviderForModel(titleModel) || providers.groq).generate(titleModel, [
+          { role: 'system', content: 'یک عنوان کوتاه ۳ تا ۵ کلمه‌ای برای این مکالمه بنویس. فقط عنوان را بنویس و هیچ توضیح اضافه نده. عنوان باید فارسی باشد.' },
+          { role: 'user', content: content }
+        ]);
+        const title = titleResult.content.replace(/["'«»]/g, '').trim().substring(0, 80);
+        await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+      } catch {
+        const title = content.length > 50 ? content.substring(0, 50) + '...' : content;
+        await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+      }
     }
 
     if (model && model !== conversation.model) {
@@ -121,8 +132,19 @@ async function streamMessage(req, res) {
 
     const msgCount = await prisma.message.count({ where: { conversationId } });
     if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {
-      const title = content.length > 50 ? content.substring(0, 50) + '...' : content;
-      await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+      try {
+        const titleModels = ['qwen3-8b', 'gpt-oss-20b', 'allam-7b'];
+        const titleModel = titleModels.find(m => getProviderForModel(m)) || model || 'qwen3-8b';
+        const titleResult = await (getProviderForModel(titleModel) || providers.groq).generate(titleModel, [
+          { role: 'system', content: 'یک عنوان کوتاه ۳ تا ۵ کلمه‌ای برای این مکالمه بنویس. فقط عنوان را بنویس و هیچ توضیح اضافه نده. عنوان باید فارسی باشد.' },
+          { role: 'user', content: content }
+        ]);
+        const title = titleResult.content.replace(/["'«»]/g, '').trim().substring(0, 80);
+        await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+      } catch {
+        const title = content.length > 50 ? content.substring(0, 50) + '...' : content;
+        await prisma.conversation.update({ where: { id: conversationId }, data: { title } });
+      }
     }
     if (model && model !== conversation.model) {
       await prisma.conversation.update({ where: { id: conversationId }, data: { model } });
