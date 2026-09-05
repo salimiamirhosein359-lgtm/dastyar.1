@@ -24,7 +24,7 @@ async function sendMessage(req, res) {
 
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId, userId },
-      include: { messages: { orderBy: { createdAt: 'desc' }, take: 50 } }
+      include: { messages: { orderBy: { createdAt: 'desc' }, take: 20 } }
     });
 
     if (!conversation) return res.status(404).json({ error: 'گفتگو یافت نشد' });
@@ -33,7 +33,7 @@ async function sendMessage(req, res) {
       data: { conversationId, role: 'user', content, model: model || 'auto' }
     });
 
-    const contextMessages = conversation.messages.reverse().slice(0, 20);
+    const contextMessages = conversation.messages.slice(0, 20).reverse();
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
 
     let sources = await searchDocuments(content, userId);
@@ -92,7 +92,11 @@ async function sendMessage(req, res) {
     });
   } catch (error) {
     logger.error('sendMessage error:', error.message);
-    res.status(500).json({ error: error.message || 'خطای داخلی سرور' });
+    if (error.message && !error.message.includes('Prisma') && !error.message.includes('ECONNREFUSED')) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: 'خطای داخلی سرور' });
+    }
   }
 }
 
@@ -110,7 +114,7 @@ async function streamMessage(req, res) {
 
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId, userId },
-      include: { messages: { orderBy: { createdAt: 'desc' }, take: 50 } }
+      include: { messages: { orderBy: { createdAt: 'desc' }, take: 20 } }
     });
 
     if (!conversation) {
@@ -122,7 +126,7 @@ async function streamMessage(req, res) {
       data: { conversationId, role: 'user', content, model: model || 'auto' }
     });
 
-    const contextMessages = conversation.messages.reverse().slice(0, 20);
+    const contextMessages = conversation.messages.slice(0, 20).reverse();
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
     let sources = await searchDocuments(content, userId);
     const docSources = await getDocumentContent(documentIds, userId);
@@ -171,7 +175,9 @@ async function streamMessage(req, res) {
     res.end();
   } catch (error) {
     logger.error('streamMessage error:', error.message);
-    res.write('data: ' + JSON.stringify({ type: 'error', error: error.message || 'خطا در دریافت پاسخ' }) + '\n\n');
+    const safeMsg = error.message && !error.message.includes('Prisma') && !error.message.includes('ECONNREFUSED')
+      ? error.message : 'خطا در دریافت پاسخ';
+    res.write('data: ' + JSON.stringify({ type: 'error', error: safeMsg }) + '\n\n');
     res.end();
   }
 }
