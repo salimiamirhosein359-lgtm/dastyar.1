@@ -1,10 +1,14 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 
-interface AttachedDoc {
+interface AttachedFile {
   id: string;
   title: string;
+  uploading?: boolean;
 }
+
+const MAX_FILES = 5;
+const ALLOWED_EXT = ['.txt', '.md', '.csv', '.json', '.js', '.ts', '.py', '.html', '.css', '.pdf'];
 
 export default function ChatInput({
   onSend,
@@ -20,11 +24,12 @@ export default function ChatInput({
   searchActive?: boolean;
 }) {
   const [text, setText] = useState('');
-  const [attachedDocs, setAttachedDocs] = useState<AttachedDoc[]>([]);
+  const [files, setFiles] = useState<AttachedFile[]>([]);
   const [showDocPicker, setShowDocPicker] = useState(false);
   const [availableDocs, setAvailableDocs] = useState<any[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const docPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -59,46 +64,111 @@ export default function ChatInput({
     setShowDocPicker(!showDocPicker);
   };
 
-  const attachDoc = (doc: any) => {
-    if (attachedDocs.length >= 4) return;
-    if (attachedDocs.find(d => d.id === doc.id)) return;
-    setAttachedDocs(prev => [...prev, { id: doc.id, title: doc.title }]);
+  const attachExistingDoc = (doc: any) => {
+    if (files.length >= MAX_FILES) return;
+    if (files.find(f => f.id === doc.id)) return;
+    setFiles(prev => [...prev, { id: doc.id, title: doc.title }]);
   };
 
-  const removeDoc = (id: string) => {
-    setAttachedDocs(prev => prev.filter(d => d.id !== id));
+  const removeFile = (id: string) => {
+    setFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const uploadFile = async (file: File) => {
+    if (files.length >= MAX_FILES) return;
+
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!ALLOWED_EXT.includes(ext)) {
+      alert('فرمت فایل پشتیبانی نمیشه');
+      return;
+    }
+
+    const tempId = 'uploading-' + Date.now() + Math.random();
+    setFiles(prev => [...prev, { id: tempId, title: file.name, uploading: true }]);
+
+    try {
+      const token = localStorage.getItem('token');
+      const buffer = await file.arrayBuffer();
+      const res = await fetch('/api/documents/upload-file', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/octet-stream',
+          'X-Filename': encodeURIComponent(file.name),
+        },
+        body: Buffer.from(buffer),
+      });
+      const data = await res.json();
+      if (data.document?.id) {
+        setFiles(prev => prev.map(f => f.id === tempId ? { id: data.document.id, title: data.document.title || file.name, uploading: false } : f));
+      } else {
+        setFiles(prev => prev.filter(f => f.id !== tempId));
+        alert(data.error || 'خطا در آپلود فایل');
+      }
+    } catch {
+      setFiles(prev => prev.filter(f => f.id !== tempId));
+      alert('خطا در آپلود فایل');
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (!selected) return;
+    for (let i = 0; i < selected.length && files.length < MAX_FILES; i++) {
+      uploadFile(selected[i]);
+    }
+    e.target.value = '';
+  };
+
+  const attachDocs = (docIds: string[]) => {
+    onSend(text.trim(), docIds);
+    setText('');
+    setFiles([]);
+    setShowDocPicker(false);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
   const submit = () => {
     const t = text.trim();
     if (!t || loading || disabled) return;
-    onSend(t, attachedDocs.map(d => d.id));
-    setText('');
-    setAttachedDocs([]);
-    setShowDocPicker(false);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    const docIds = files.map(f => f.id).filter(id => !id.startsWith('uploading-'));
+    if (files.some(f => f.uploading)) {
+      alert('صبر کن فایل‌ها آپلود بشن');
+      return;
+    }
+    attachDocs(docIds);
   };
 
   return (
-    <div className="relative px-2 md:px-0">
+    <div className="relative">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={ALLOWED_EXT.join(',')}
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
       {/* Doc picker */}
       {showDocPicker && (
         <div ref={docPickerRef} className="absolute bottom-full mb-3 left-0 right-0 bg-white border border-stroke rounded-2xl shadow-2xl p-3 z-50 animate-fade-in">
           <div className="flex items-center justify-between mb-3 px-1">
             <p className="text-xs font-extrabold text-ink">انتخاب سند</p>
-            <span className="text-[10px] text-ink-muted bg-paper rounded-lg px-2 py-0.5">حداکثر ۴ فایل</span>
+            <span className="text-[10px] text-ink-muted bg-paper rounded-lg px-2 py-0.5">{files.length}/{MAX_FILES}</span>
           </div>
           {availableDocs.length === 0 ? (
             <p className="text-xs text-ink-muted py-4 text-center bg-paper rounded-xl border border-stroke">هنوز سندی آپلود نشده</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
               {availableDocs.map((doc) => {
-                const attached = attachedDocs.find(d => d.id === doc.id);
-                const full = attachedDocs.length >= 4 && !attached;
+                const attached = files.find(f => f.id === doc.id);
+                const full = files.length >= MAX_FILES && !attached;
                 return (
                   <button
                     key={doc.id}
-                    onClick={() => attachDoc(doc)}
+                    onClick={() => attachExistingDoc(doc)}
                     disabled={!!attached || full}
                     className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-all text-right ${
                       attached
@@ -118,23 +188,40 @@ export default function ChatInput({
               })}
             </div>
           )}
+          <div className="mt-3 pt-3 border-t border-stroke">
+            <button
+              onClick={() => { fileInputRef.current?.click(); }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gold/8 hover:bg-gold/15 text-gold text-xs font-bold transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              آپلود فایل جدید
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Attached chips */}
-      {attachedDocs.length > 0 && (
+      {/* Attached files chips */}
+      {files.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2 px-1">
-          {attachedDocs.map((doc) => (
-            <span key={doc.id} className="inline-flex items-center gap-1.5 bg-gold/8 text-gold text-xs px-3 py-1 rounded-full border border-gold/15">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              <span className="truncate max-w-[120px]">{doc.title}</span>
-              <button onClick={() => removeDoc(doc.id)} className="hover:text-red-400 -mr-1 p-0.5">
-                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          {files.map((f) => (
+            <span key={f.id} className="inline-flex items-center gap-1.5 bg-gold/8 text-gold text-xs px-3 py-1 rounded-full border border-gold/15">
+              {f.uploading ? (
+                <span className="w-3 h-3 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+              ) : (
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
-              </button>
+              )}
+              <span className="truncate max-w-[120px]">{f.title}</span>
+              {!f.uploading && (
+                <button onClick={() => removeFile(f.id)} className="hover:text-red-400 -mr-1 p-0.5">
+                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </span>
           ))}
         </div>
@@ -159,15 +246,29 @@ export default function ChatInput({
         />
         <div className="flex items-center justify-between px-4 pb-3">
           <div className="flex items-center gap-1">
+            {/* Upload new file */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2.5 rounded-xl text-ink-muted hover:text-gold hover:bg-gold/5 transition-all duration-200"
+              title="آپلود فایل"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+              </svg>
+            </button>
+
+            {/* Pick existing doc */}
             <button
               onClick={toggleDocPicker}
               className={`p-2.5 rounded-xl transition-all duration-200 ${showDocPicker ? 'bg-gold/10 text-gold' : 'text-ink-muted hover:text-ink-secondary hover:bg-stroke-light'}`}
               title="انتخاب سند"
             >
               <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </button>
+
+            {/* Web search toggle */}
             <button
               onClick={onSearchToggle}
               className={`p-2.5 rounded-xl transition-all duration-200 ${searchActive ? 'bg-blue-50 text-blue-500' : 'text-ink-muted hover:text-ink-secondary hover:bg-stroke-light'}`}
