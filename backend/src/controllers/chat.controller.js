@@ -3,6 +3,7 @@ const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModel
 const { searchWeb } = require('../services/search.service');
 const { rewriteQuery } = require('../services/query.service');
 const { rerankResults } = require('../services/rerank.service');
+const { selectModel } = require('../services/model-router.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -121,7 +122,10 @@ async function streamMessage(req, res) {
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
 
     const queryInfo = await rewriteQuery(content, context);
+    const modelRoute = selectModel(queryInfo, model);
+    const selectedModel = modelRoute.modelId;
     logger.info(`[QueryRewrite] intent=${queryInfo.intent} search="${queryInfo.searchQuery}"`);
+    logger.info(`[ModelRouter] selected=${selectedModel} reason=${modelRoute.reason}`);
 
     let sources = await searchDocuments(queryInfo.searchQuery, userId);
     const docSources = await getDocumentContent(documentIds, userId);
@@ -145,7 +149,7 @@ async function streamMessage(req, res) {
     }
 
     let fullContent = '';
-    await streamAIResponse(content, context, sources, model, userId, (chunk) => {
+    await streamAIResponse(content, context, sources, selectedModel, userId, (chunk) => {
       fullContent += chunk;
       res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
     }, webResults, queryInfo);
@@ -169,7 +173,7 @@ async function streamMessage(req, res) {
       await prisma.conversation.update({ where: { id: conversationId }, data: { model } });
     }
 
-    res.write('data: ' + JSON.stringify({ type: 'done', message: saved, model: model || 'auto' }) + '\n\n');
+    res.write('data: ' + JSON.stringify({ type: 'done', message: saved, model: selectedModel || 'auto' }) + '\n\n');
     res.end();
   } catch (error) {
     logger.error('streamMessage error:', error.message);
