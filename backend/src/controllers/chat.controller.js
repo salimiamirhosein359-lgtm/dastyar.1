@@ -63,14 +63,13 @@ async function sendMessage(req, res) {
     });
 
     const msgCount = await prisma.message.count({ where: { conversationId } });
-    if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {
+    if (msgCount <= 2 && conversation.title.includes('جدید')) {
       const title = content.length > 60 ? content.substring(0, 60).trim() + '...' : content.trim();
       await prisma.conversation.update({ where: { id: conversationId }, data: { title } }).catch(() => {});
     }
 
     if (model && model !== conversation.model) {
       await prisma.conversation.update({ where: { id: conversationId }, data: { model } });
-    }
 
     res.json({
       message: saved,
@@ -149,7 +148,7 @@ async function streamMessage(req, res) {
     });
 
     const msgCount = await prisma.message.count({ where: { conversationId } });
-    if (msgCount <= 2 && conversation.title === 'گفتگوی جدید') {
+    if (msgCount <= 2 && conversation.title.includes('جدید')) {
       const title = content.length > 60 ? content.substring(0, 60).trim() + '...' : content.trim();
       await prisma.conversation.update({ where: { id: conversationId }, data: { title } }).catch(() => {});
     }
