@@ -63,7 +63,6 @@ export default function ChatInput({
     if (attachedDocs.length >= 4) return;
     if (attachedDocs.find(d => d.id === doc.id)) return;
     setAttachedDocs(prev => [...prev, { id: doc.id, title: doc.title }]);
-    setShowDocPicker(false);
   };
 
   const removeDoc = (id: string) => {
@@ -76,15 +75,15 @@ export default function ChatInput({
     onSend(t, attachedDocs.map(d => d.id));
     setText('');
     setAttachedDocs([]);
+    setShowDocPicker(false);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
   return (
     <div className="relative">
-      {/* Document Picker Dropdown */}
       {showDocPicker && (
-        <div ref={docPickerRef} className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-stroke rounded-2xl shadow-lg p-3 z-50 animate-fade-in">
-          <p className="text-xs font-bold text-ink mb-2">انتخاب سند (حداکثر 4 فایل)</p>
+        <div ref={docPickerRef} className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-stroke rounded-2xl shadow-lg p-3 z-50">
+          <p className="text-xs font-bold text-ink mb-2">انتخاب سند (حداکثر ۴ فایل)</p>
           {availableDocs.length === 0 ? (
             <p className="text-xs text-ink-muted py-3 text-center">هنوز سندی آپلود نشده</p>
           ) : (
@@ -109,7 +108,7 @@ export default function ChatInput({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                     <span className="truncate">{doc.title}</span>
-                    {attached && <span className="text-gold">✓</span>}
+                    {attached && <span className="text-gold mr-auto">✓</span>}
                   </button>
                 );
               })}
@@ -118,7 +117,6 @@ export default function ChatInput({
         </div>
       )}
 
-      {/* Attached Files Chips */}
       {attachedDocs.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2 px-1">
           {attachedDocs.map((doc) => (
@@ -137,7 +135,6 @@ export default function ChatInput({
         </div>
       )}
 
-      {/* Input */}
       <div className="bg-white border border-stroke rounded-3xl shadow-card focus-within:ring-2 focus-within:ring-gold/20 focus-within:border-gold/50 transition-all duration-300">
         <textarea
           ref={textareaRef}
@@ -156,32 +153,22 @@ export default function ChatInput({
         />
         <div className="flex items-center justify-between px-4 pb-3 pt-1">
           <div className="flex items-center gap-1">
-            {/* Folder/Document Icon */}
             <button
               onClick={toggleDocPicker}
-              className={`p-2 rounded-xl transition-all ${
-                showDocPicker
-                  ? 'bg-gold/10 text-gold'
-                  : 'text-ink-muted hover:text-ink hover:bg-ink/5'
-              }`}
+              className={`p-2 rounded-xl transition-all ${showDocPicker ? 'bg-gold/10 text-gold' : 'text-ink-muted hover:text-ink hover:bg-ink/5'}`}
               title="انتخاب سند"
             >
-              <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
               </svg>
             </button>
 
-            {/* Web Search Toggle */}
             <button
               onClick={onSearchToggle}
-              className={`p-2 rounded-xl transition-all ${
-                searchActive
-                  ? 'bg-blue-50 text-blue-500'
-                  : 'text-ink-muted hover:text-ink hover:bg-ink/5'
-              }`}
+              className={`p-2 rounded-xl transition-all ${searchActive ? 'bg-blue-50 text-blue-500' : 'text-ink-muted hover:text-ink hover:bg-ink/5'}`}
               title={searchActive ? 'جستجوی وب فعال' : 'فعال کردن جستجوی وب'}
             >
-              <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
             </button>
