@@ -24,13 +24,14 @@ function proxyRequest(hostname, path) {
       if (headerBuf.includes('\r\n\r\n') && headerBuf.includes('200')) {
         proxySocket.removeListener('data', onProxyData);
         const tlsSocket = tls.connect({ socket: proxySocket, servername: hostname, timeout: 15000 }, () => {
-          tlsSocket.write(`GET ${path} HTTP/1.1\r\nHost: ${hostname}\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\nAccept: application/json\r\n\r\n`);
+          tlsSocket.write(`GET ${path} HTTP/1.1\r\nHost: ${hostname}\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\nAccept: application/json\r\nAccept-Encoding: identity\r\n\r\n`);
         });
         let buf = '';
         tlsSocket.on('data', (c) => { buf += c.toString(); });
         tlsSocket.on('end', () => {
           const idx = buf.indexOf('\r\n\r\n');
-          const body = idx >= 0 ? buf.substring(idx + 4) : buf;
+          let body = idx >= 0 ? buf.substring(idx + 4) : buf;
+          body = body.replace(/^[0-9a-f]+\r\n/i, '');
           try { resolve(JSON.parse(body)); } catch { resolve(body); }
         });
         tlsSocket.on('error', reject);
