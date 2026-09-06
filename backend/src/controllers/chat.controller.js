@@ -5,6 +5,7 @@ const { rewriteQuery } = require('../services/query.service');
 const { rerankResults } = require('../services/rerank.service');
 const { selectModel } = require('../services/model-router.service');
 const { detectFollowUp, buildContextualSearchQuery, shouldReSearch } = require('../services/memory.service');
+const { deepResearch } = require('../services/deep-research.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -96,7 +97,7 @@ async function sendMessage(req, res) {
 async function streamMessage(req, res) {
   try {
     const { conversationId } = req.params;
-    const { content, model, documentIds, searchActive } = req.body;
+    const { content, model, documentIds, searchActive, deepResearchMode } = req.body;
     const userId = req.user.id;
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -143,13 +144,27 @@ async function streamMessage(req, res) {
     let webResults = [];
     if (searchActive) {
       try {
-        const shouldSearch = shouldReSearch(followUpInfo.isFollowUp, queryInfo.intent, null, content);
-        if (shouldSearch) {
-          webResults = await searchWeb(searchQuery, 8);
-          if (webResults.length === 0 && queryInfo.expandedQuery !== queryInfo.searchQuery) {
-            webResults = await searchWeb(queryInfo.expandedQuery, 8);
+        if (deepResearchMode) {
+          logger.info(`[DeepResearch] Mode activated for: "${content.substring(0, 50)}"`);
+          res.write('data: ' + JSON.stringify({ type: 'deepResearchStart', message: 'در حال تحقیق عمیق...' }) + '\n\n');
+
+          const researchResult = await deepResearch(content, context, {
+            maxIterations: 3,
+            onProgress: (progress) => {
+              res.write('data: ' + JSON.stringify({ type: 'deepResearchProgress', ...progress }) + '\n\n');
+            }
+          });
+          webResults = researchResult.sources;
+          logger.info(`[DeepResearch] Complete: ${webResults.length} sources from ${researchResult.iterations} iterations`);
+        } else {
+          const shouldSearch = shouldReSearch(followUpInfo.isFollowUp, queryInfo.intent, null, content);
+          if (shouldSearch) {
+            webResults = await searchWeb(searchQuery, 8);
+            if (webResults.length === 0 && queryInfo.expandedQuery !== queryInfo.searchQuery) {
+              webResults = await searchWeb(queryInfo.expandedQuery, 8);
+            }
+            webResults = rerankResults(searchQuery, webResults).slice(0, 5);
           }
-          webResults = rerankResults(searchQuery, webResults).slice(0, 5);
         }
       } catch (e) {
         logger.error('Web search failed:', e.message);

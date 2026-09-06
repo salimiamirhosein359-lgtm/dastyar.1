@@ -75,8 +75,8 @@ export const api = {
   chat: {
     send: (conversationId: string, content: string, model?: string, docIds?: string[]) =>
       request(`/chat/send/${conversationId}`, { method: 'POST', body: JSON.stringify({ content, model, documentIds: docIds }) }),
-    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[], onWebResults?: (results: any[]) => void, searchActive?: boolean) =>
-      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds, searchActive }, onChunk, onDone, onWebResults),
+    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[], onWebResults?: (results: any[]) => void, searchActive?: boolean, deepResearchMode?: boolean) =>
+      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds, searchActive, deepResearchMode }, onChunk, onDone, onWebResults),
     models: () => request('/chat/models'),
   },
   documents: {

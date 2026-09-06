@@ -1,1 +1,1 @@
-feat: Gap 6 - Smart conversation memory - context-aware follow-up
+feat: Gap 7 - Deep Research - agentic RAG loop
