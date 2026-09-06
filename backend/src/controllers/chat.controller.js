@@ -8,12 +8,12 @@ async function getDocumentContent(docIds, userId) {
   if (!docIds || docIds.length === 0) return [];
   const docs = await prisma.document.findMany({
     where: { id: { in: docIds }, userId },
-    select: { id: true, title: true, content: true, chunks: { select: { content: true }, orderBy: { chunkIndex: 'asc' }, take: 5 } }
+    select: { id: true, title: true, content: true }
   });
   return docs.map(d => ({
     documentTitle: d.title,
     documentId: d.id,
-    content: d.chunks.length > 0 ? d.chunks.map(c => c.content).join('\n\n') : (d.content || '').substring(0, 2000)
+    content: (d.content || '').substring(0, 8000)
   }));
 }
 
