@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, providers, getProviderForModel } = require('../services/ai.service');
 const { searchWeb } = require('../services/search.service');
 const { rewriteQuery } = require('../services/query.service');
+const { rerankResults } = require('../services/rerank.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -129,10 +130,11 @@ async function streamMessage(req, res) {
     let webResults = [];
     if (searchActive) {
       try {
-        webResults = await searchWeb(queryInfo.searchQuery, 5);
+        webResults = await searchWeb(queryInfo.searchQuery, 8);
         if (webResults.length === 0 && queryInfo.expandedQuery !== queryInfo.searchQuery) {
-          webResults = await searchWeb(queryInfo.expandedQuery, 5);
+          webResults = await searchWeb(queryInfo.expandedQuery, 8);
         }
+        webResults = rerankResults(queryInfo.searchQuery, webResults).slice(0, 5);
       } catch (e) {
         logger.error('Web search failed:', e.message);
       }
