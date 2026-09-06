@@ -1,1 +1,0 @@
-PGPASSWORD=dastyar123 psql -U dastyar -d dastyar_db -h localhost -c "SELECT d.id, d.title, d.status, d.user_id, u.email FROM \"Document\" d JOIN \"User\" u ON d.user_id = u.id ORDER BY d.created_at DESC LIMIT 5;"
