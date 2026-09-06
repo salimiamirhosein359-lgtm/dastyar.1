@@ -92,7 +92,7 @@ async function sendMessage(req, res) {
 async function streamMessage(req, res) {
   try {
     const { conversationId } = req.params;
-    const { content, model, documentIds } = req.body;
+    const { content, model, documentIds, searchActive } = req.body;
     const userId = req.user.id;
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -122,10 +122,12 @@ async function streamMessage(req, res) {
     sources = [...docSources, ...sources];
 
     let webResults = [];
-    try {
-      webResults = await searchWeb(content, 5);
-    } catch (e) {
-      logger.error('Web search failed:', e.message);
+    if (searchActive) {
+      try {
+        webResults = await searchWeb(content, 5);
+      } catch (e) {
+        logger.error('Web search failed:', e.message);
+      }
     }
 
     if (webResults.length > 0) {

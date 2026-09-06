@@ -25,8 +25,13 @@ async function streamRequest(path: string, body: Record<string, any>, onChunk: (
     body: JSON.stringify(body),
   });
 
+  if (!res.ok) {
+    const errData = await res.json().catch(() => null);
+    throw new Error(errData?.error || `خطای سرور: ${res.status}`);
+  }
+
   const reader = res.body?.getReader();
-  if (!reader) throw new Error('No reader available');
+  if (!reader) throw new Error('پاسخ سرور خالی است');
   const decoder = new TextDecoder();
   let buffer = '';
 
@@ -70,8 +75,8 @@ export const api = {
   chat: {
     send: (conversationId: string, content: string, model?: string, docIds?: string[]) =>
       request(`/chat/send/${conversationId}`, { method: 'POST', body: JSON.stringify({ content, model, documentIds: docIds }) }),
-    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[], onWebResults?: (results: any[]) => void) =>
-      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds }, onChunk, onDone, onWebResults),
+    stream: (conversationId: string, content: string, model: string, onChunk: (chunk: string) => void, onDone?: (data: any) => void, docIds?: string[], onWebResults?: (results: any[]) => void, searchActive?: boolean) =>
+      streamRequest(`/chat/stream/${conversationId}`, { content, model, documentIds: docIds, searchActive }, onChunk, onDone, onWebResults),
     models: () => request('/chat/models'),
   },
   documents: {

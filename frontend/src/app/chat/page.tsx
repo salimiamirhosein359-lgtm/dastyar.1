@@ -119,7 +119,8 @@ export default function ChatPage() {
           if (results && results.length > 0) {
             setWebResults(results);
           }
-        }
+        },
+        searchActive
       );
     } catch (e: any) {
       setMessages((m) => {
