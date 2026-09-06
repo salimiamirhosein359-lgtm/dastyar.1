@@ -1,4 +1,8 @@
 const express = require('express');
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { uploadDocument, getDocuments, getDocument, deleteDocument, getDocumentStatus } = require('../controllers/document.controller');
@@ -28,17 +32,20 @@ router.post('/upload-file', (req, res, next) => {
     };
 
     if (fileName.endsWith('.pdf')) {
+      const tmpFile = path.join(os.tmpdir(), `upload-${Date.now()}.pdf`);
+      const txtFile = tmpFile.replace('.pdf', '.txt');
       try {
-        const pdfParse = require('pdf-parse');
-        pdfParse(buffer).then(data => {
-          req.file.buffer = Buffer.from(data.text, 'utf-8');
-          req.file.mimetype = 'text/plain';
-          uploadDocument(req, res);
-        }).catch(err => {
-          res.status(400).json({ error: 'خطا در خواندن PDF: ' + err.message });
-        });
-      } catch {
-        res.status(400).json({ error: 'پشتیبانی PDF نصب نیست.' });
+        fs.writeFileSync(tmpFile, buffer);
+        execSync(`pdftotext "${tmpFile}" "${txtFile}"`, { timeout: 30000 });
+        const text = fs.readFileSync(txtFile, 'utf-8');
+        req.file.buffer = Buffer.from(text, 'utf-8');
+        req.file.mimetype = 'text/plain';
+        uploadDocument(req, res);
+      } catch (err) {
+        res.status(400).json({ error: 'خطا در خواندن PDF: ' + (err.message || 'ناشناخته') });
+      } finally {
+        try { fs.unlinkSync(tmpFile); } catch {}
+        try { fs.unlinkSync(txtFile); } catch {}
       }
     } else {
       uploadDocument(req, res);
