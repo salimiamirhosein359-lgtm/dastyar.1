@@ -70,6 +70,7 @@ async function sendMessage(req, res) {
 
     if (model && model !== conversation.model) {
       await prisma.conversation.update({ where: { id: conversationId }, data: { model } });
+    }
 
     res.json({
       message: saved,
