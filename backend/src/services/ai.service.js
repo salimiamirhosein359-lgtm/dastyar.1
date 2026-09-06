@@ -463,7 +463,18 @@ async function streamAIResponse(userMessage, conversationContext, sourceDocs, mo
   ];
 
   if (provider.stream) {
-    return await provider.stream(modelId, messages, onChunk);
+    let hasContent = false;
+    const wrappedOnChunk = (chunk) => {
+      if (chunk) hasContent = true;
+      onChunk(chunk);
+    };
+    const result = await provider.stream(modelId, messages, wrappedOnChunk);
+    if (!hasContent || !result.content) {
+      const fallback = 'متأسفانه نتونستم پاسخ مناسبی تولید کنم. لطفاً سوالتون رو ساده‌تر بپرسید یا سند دیگه‌ای آپلود کنید.';
+      onChunk(fallback);
+      return { content: fallback, tokens: result.tokens, model: result.model, provider: result.provider };
+    }
+    return result;
   }
   const result = await provider.generate(modelId, messages);
   onChunk(result.content);
