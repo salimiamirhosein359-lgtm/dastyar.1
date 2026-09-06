@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { generateAIResponse, streamAIResponse, searchDocuments, getAvailableModels, providers, getProviderForModel } = require('../services/ai.service');
 const { searchWeb } = require('../services/search.service');
+const { rewriteQuery } = require('../services/query.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -117,14 +118,21 @@ async function streamMessage(req, res) {
 
     const contextMessages = conversation.messages.slice(0, 20).reverse();
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
-    let sources = await searchDocuments(content, userId);
+
+    const queryInfo = await rewriteQuery(content, context);
+    logger.info(`[QueryRewrite] intent=${queryInfo.intent} search="${queryInfo.searchQuery}"`);
+
+    let sources = await searchDocuments(queryInfo.searchQuery, userId);
     const docSources = await getDocumentContent(documentIds, userId);
     sources = [...docSources, ...sources];
 
     let webResults = [];
     if (searchActive) {
       try {
-        webResults = await searchWeb(content, 5);
+        webResults = await searchWeb(queryInfo.searchQuery, 5);
+        if (webResults.length === 0 && queryInfo.expandedQuery !== queryInfo.searchQuery) {
+          webResults = await searchWeb(queryInfo.expandedQuery, 5);
+        }
       } catch (e) {
         logger.error('Web search failed:', e.message);
       }
@@ -138,7 +146,7 @@ async function streamMessage(req, res) {
     await streamAIResponse(content, context, sources, model, userId, (chunk) => {
       fullContent += chunk;
       res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
-    }, webResults);
+    }, webResults, queryInfo);
 
     const saved = await prisma.message.create({
       data: {

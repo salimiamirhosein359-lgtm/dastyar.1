@@ -345,7 +345,7 @@ const providers = {
 };
 
 // ─── System Prompt ──────────────────────────────────────────
-function buildSystemPrompt(sourceDocs, userName, webResults = []) {
+function buildSystemPrompt(sourceDocs, userName, webResults = [], queryInfo = null) {
   let prompt = `تو دستیار هوش مصنوعی فارسی هستی به نام «دستیار».
 قوانین مهم:
 - همیشه فقط به فارسی یا انگلیسی پاسخ بده. هرگز به عربی، ترکی یا هیچ زبان دیگری پاسخ نده.
@@ -353,7 +353,26 @@ function buildSystemPrompt(sourceDocs, userName, webResults = []) {
 - مخاطبانت دانشجو، پژوهشگر و حرفه‌ای هستند.
 - پاسخ‌هایت دقیق، علمی و ساختاریافته باشد.
 - از bullet point و فرمت مناسب استفاده کن.
-- عنوان مکالمه را در ۳ تا ۵ کلمه خلاصه کن (فقط وقتی درخواست شد).`;
+- عنوان مکالمه را در ۳ تا ۵ کلمه خلاصه کن (فقط وقتی درخواست شد).
+- از فرمت [1] [2] برای استناد به منابع در متن پاسخ استفاده کن.
+- در انتهای پاسخ، بخش «منابع» با لینک‌های واقعی بنویس.`;
+
+  if (queryInfo && queryInfo.intent) {
+    const intentGuide = {
+      'factual': 'کاربر به دنبال یک پاسخ واقعی و مشخص است. پاسخ دقیق و کوتاه بده.',
+      'comparison': 'کاربر دو یا چند چیز را مقایسه می‌کند. جدول مقایسه‌ای بساز.',
+      'definition': 'کاربر تعریف یک مفهوم را می‌خواهد. تعریف واضح و ساختاریافته بده.',
+      'explanation': 'کاربر توضیح یک موضوع را می‌خواهد. با مثال و جزئیات توضیح بده.',
+      'research': 'کاربر تحقیق جامع می‌خواهد. گزارش کامل با منابع متعدد بنویس.',
+      'code': 'کاربر کد یا مسئله برنامه‌نویسی دارد. کد تمیز با توضیح بده.',
+      'math': 'کاربر مسئله ریاضی دارد. حل قدم به قدم با توضیح بده.',
+      'creative': 'کاربر محتوای خلاقانه می‌خواهد. خلاقانه و جذاب بنویس.'
+    };
+    prompt += `\n\nنیت کاربر: ${queryInfo.intent}`;
+    if (intentGuide[queryInfo.intent]) {
+      prompt += `\n${intentGuide[queryInfo.intent]}`;
+    }
+  }
 
   if (userName) {
     prompt += `\nکاربر: ${userName}`;
@@ -361,19 +380,20 @@ function buildSystemPrompt(sourceDocs, userName, webResults = []) {
 
   if (sourceDocs && sourceDocs.length > 0) {
     prompt += `\n\nتو به اسناد زیر دسترسی داری. بر اساس این اسناد پاسخ بده.`;
-    prompt += `\nاز فرمت [منبع: عنوان سند] برای استناد استفاده کن.`;
+    prompt += `\nاز فرمت [1] [2] برای استناد در متن استفاده کن.`;
     prompt += `\n\nاسناد مرجع:\n`;
     sourceDocs.forEach((doc, i) => {
-      prompt += `\n--- سند ${i + 1}: ${doc.documentTitle || 'ناشناس'} ---\n${doc.content}\n`;
+      prompt += `\n--- [${i + 1}] ${doc.documentTitle || 'ناشناس'} ---\n${doc.content}\n`;
     });
   }
 
   if (webResults && webResults.length > 0) {
     prompt += `\n\nنتایج جستجوی وب:\n`;
     webResults.forEach((r, i) => {
-      prompt += `\n--- نتیجه ${i + 1}: ${r.title} ---\n${r.snippet}\nلینک: ${r.url}\n`;
+      const idx = (sourceDocs?.length || 0) + i + 1;
+      prompt += `\n--- [${idx}] ${r.title} ---\n${r.snippet}\nلینک: ${r.url}\n`;
     });
-    prompt += `\nاز اطلاعات وب برای تکمیل پاسخ استفاده کن. حتماً منابع وب را با [منبع: لینک] ذکر کن.`;
+    prompt += `\nاز اطلاعات وب برای تکمیل پاسخ استفاده کن. حتماً منابع وب را با [${(sourceDocs?.length || 0) + 1}]... در متن ذکر کن.`;
   }
 
   if ((!sourceDocs || sourceDocs.length === 0) && (!webResults || webResults.length === 0)) {
@@ -450,12 +470,12 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
   }
 }
 
-async function streamAIResponse(userMessage, conversationContext, sourceDocs, modelId, userId, onChunk, webResults = []) {
+async function streamAIResponse(userMessage, conversationContext, sourceDocs, modelId, userId, onChunk, webResults = [], queryInfo = null) {
   if (!modelId) modelId = getBestAvailableModel();
   const provider = getProviderForModel(modelId);
   if (!provider) throw new Error('هیچ مدل هوش مصنوعی در دسترس نیست.');
 
-  const systemPrompt = buildSystemPrompt(sourceDocs, null, webResults);
+  const systemPrompt = buildSystemPrompt(sourceDocs, null, webResults, queryInfo);
   const messages = [
     { role: 'system', content: systemPrompt },
     ...conversationContext,
