@@ -67,12 +67,7 @@ async function searchWeb(query, numResults = 5) {
       `/?q=${encoded}&format=json&no_html=1&skip_disambig=1`
     );
 
-    console.log('[searchWeb] data type:', typeof data, 'isArray:', Array.isArray(data));
-    if (typeof data !== 'object' || !data) {
-      console.log('[searchWeb] data is not object:', typeof data === 'string' ? data.substring(0, 200) : data);
-      return [];
-    }
-    console.log('[searchWeb] AbstractText:', !!data.AbstractText, 'RelatedTopics:', Array.isArray(data.RelatedTopics) ? data.RelatedTopics.length : 'N/A');
+    if (typeof data !== 'object' || !data) return [];
 
     const results = [];
 
@@ -121,7 +116,6 @@ async function searchWeb(query, numResults = 5) {
 
     return results.slice(0, numResults);
   } catch (error) {
-    console.log('[searchWeb] ERROR:', error.message);
     logger.error('Web search error:', error.message);
     return [];
   }
