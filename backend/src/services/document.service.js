@@ -1,7 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
 const { getEmbedding } = require('./embedding.service');
 const logger = require('../config/logger');
-const pdfParse = require('pdf-parse');
+
+let pdfParse = null;
+try {
+  pdfParse = require('pdf-parse');
+} catch (e) {
+  logger.warn('pdf-parse not available, PDF parsing disabled:', e.message);
+}
 
 const prisma = new PrismaClient();
 
@@ -68,6 +74,7 @@ function chunkText(text, maxTokens = 512, overlap = 0.15) {
 }
 
 async function parsePdf(buffer) {
+  if (!pdfParse) throw new Error('PDF parser not available');
   const data = await pdfParse(buffer);
   return data.text || '';
 }
