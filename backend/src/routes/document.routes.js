@@ -13,7 +13,7 @@ router.use(authMiddleware);
 const TEXT_EXTS = ['.txt', '.md', '.csv', '.json', '.js', '.ts', '.py', '.html', '.css', '.xml', '.yaml', '.yml', '.log', '.sql', '.sh', '.bat'];
 const PDF_EXTS = ['.pdf'];
 const DOC_EXTS = ['.doc'];
-const DOCX_EXTS = ['.docx'];
+const DOCX_EXTS = ['.docx', '.pptx', '.xlsx'];
 const IMG_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma'];
 const VIDEO_EXTS = ['.mp4', '.avi', '.mov', '.mkv', '.webm'];

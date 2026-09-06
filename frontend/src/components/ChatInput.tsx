@@ -8,7 +8,7 @@ interface AttachedFile {
 }
 
 const MAX_FILES = 5;
-const ALLOWED_EXT = ['.txt', '.md', '.csv', '.json', '.js', '.ts', '.py', '.html', '.css', '.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma'];
+const ALLOWED_EXT = ['.txt', '.md', '.csv', '.json', '.js', '.ts', '.py', '.html', '.css', '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma', '.mp4', '.avi', '.mov'];
 
 export default function ChatInput({
   onSend,
@@ -146,7 +146,7 @@ export default function ChatInput({
         ref={fileInputRef}
         type="file"
         multiple
-        accept={ALLOWED_EXT.join(',')}
+        accept="*/*"
         onChange={handleFileSelect}
         className="hidden"
       />
