@@ -1,1 +1,0 @@
-feat: Gap 7 - Deep Research - agentic RAG loop
