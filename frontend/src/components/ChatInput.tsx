@@ -8,7 +8,7 @@ interface AttachedFile {
 }
 
 const MAX_FILES = 5;
-const ALLOWED_EXT = ['.txt', '.md', '.csv', '.json', '.js', '.ts', '.py', '.html', '.css', '.pdf'];
+const ALLOWED_EXT = ['.txt', '.md', '.csv', '.json', '.js', '.ts', '.py', '.html', '.css', '.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma'];
 
 export default function ChatInput({
   onSend,
