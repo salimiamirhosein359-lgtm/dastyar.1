@@ -32,29 +32,33 @@ export default function Hero() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-lapis">
       {/* Header */}
-      <header className="bg-lapis relative overflow-hidden">
-        <div className="absolute inset-0 girih-pattern opacity-[0.04]" />
-        <div className="relative max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gold/20 flex items-center justify-center">
-              <span className="text-gold text-xl font-extrabold">د</span>
+      <header className="relative z-10">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-gold to-gold-hover flex items-center justify-center shadow-lg shadow-gold/20 group-hover:shadow-gold/40 transition-shadow">
+              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
             </div>
-            <span className="text-white text-lg font-extrabold tracking-tight">دستیار</span>
+            <div>
+              <span className="text-white text-lg font-extrabold tracking-tight block leading-none">دستیار</span>
+              <span className="text-gold/60 text-[10px] font-medium leading-none"> هوش مصنوعی فارسی</span>
+            </div>
           </Link>
           <div className="flex items-center gap-3">
             {user ? (
-              <Link href="/" className="btn-primary !py-2.5 !px-5 text-sm">
+              <Link href="/chat" className="btn-primary !py-2.5 !px-5 text-sm">
                 وارد شو
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-white/70 hover:text-white text-sm font-medium transition-colors">
+                <Link href="/login" className="text-white/50 hover:text-white text-sm font-medium transition-colors px-3 py-2">
                   ورود
                 </Link>
                 <Link href="/register" className="btn-primary !py-2.5 !px-5 text-sm">
-                  ثبت‌نام رایگان
+                  شروع رایگان
                 </Link>
               </>
             )}
@@ -63,38 +67,33 @@ export default function Hero() {
       </header>
 
       {/* Hero */}
-      <section className="bg-lapis relative overflow-hidden pb-20 pt-8">
-        <div className="absolute inset-0 girih-pattern opacity-[0.03]" />
-        <div className="absolute top-0 left-0 w-96 h-96 bg-gold/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-72 h-72 bg-gold/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
+      <section className="relative pb-24 pt-16">
+        {/* Background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gold/5 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="relative max-w-3xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1.5 mb-6 animate-fade-in">
-            <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-            <span className="text-white/70 text-xs font-medium">موتور پاسخ‌گوی هوش مصنوعی فارسی</span>
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2.5 bg-white/[0.06] border border-white/[0.08] rounded-full px-4 py-2 mb-8">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-white/50 text-xs font-medium">موتور پاسخ‌گوی هوش مصنوعی فارسی</span>
           </div>
 
-          <h1 className="text-white text-4xl md:text-5xl font-extrabold leading-tight mb-4 animate-slide-up">
+          {/* Headline */}
+          <h1 className="text-white text-4xl md:text-[52px] font-extrabold leading-[1.2] mb-6 tracking-tight">
             جواب سوالاتت رو
             <br />
-            <span className="text-gold">با منابع معتبر</span> بگیر
+            <span className="bg-gradient-to-l from-gold via-gold-light to-gold bg-clip-text text-transparent">با منابع معتبر</span> بگیر
           </h1>
 
-          <p className="text-white/50 text-lg mb-10 max-w-xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <p className="text-white/40 text-lg mb-12 max-w-lg mx-auto leading-7">
             از مقاله و کتاب تا آخرین تحقیقات — همه رو یکجا جستجو کن
           </p>
 
           {/* Search box */}
-          <div
-            className={`relative max-w-2xl mx-auto transition-all duration-300 ${
-              focused ? 'scale-[1.02]' : 'scale-100'
-            }`}
-          >
-            <div className={`bg-white rounded-3xl shadow-lg transition-all duration-300 ${
-              focused ? 'shadow-xl ring-2 ring-gold/30' : 'shadow-card'
-            }`}>
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-ink-muted mr-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className={`relative max-w-2xl mx-auto transition-all duration-300 ${focused ? 'scale-[1.01]' : ''}`}>
+            <div className={`bg-white/[0.07] backdrop-blur-xl border border-white/[0.1] rounded-3xl transition-all duration-300 ${focused ? 'border-gold/30 bg-white/[0.1] shadow-2xl shadow-gold/5' : ''}`}>
+              <div className="flex items-center px-5">
+                <svg className="w-5 h-5 text-white/25 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -104,12 +103,12 @@ export default function Hero() {
                   onBlur={() => setFocused(false)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="سوالت رو بپرس..."
-                  className="flex-1 py-4 text-lg bg-transparent text-ink placeholder-ink-muted focus:outline-none"
+                  className="flex-1 py-5 text-lg bg-transparent text-white placeholder-white/30 focus:outline-none"
                 />
                 <button
                   onClick={handleSearch}
                   disabled={!query.trim()}
-                  className="ml-3 mr-2 px-6 py-3 rounded-2xl bg-gold hover:bg-gold-hover text-white font-bold text-sm transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 px-6 py-3 rounded-2xl bg-gold hover:bg-gold-hover text-white font-bold text-sm transition-all duration-200 disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   جستجو
                 </button>
@@ -118,13 +117,12 @@ export default function Hero() {
           </div>
 
           {/* Examples */}
-          <div className="mt-6 flex flex-wrap justify-center gap-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            <span className="text-white/30 text-xs ml-1 self-center">مثال:</span>
+          <div className="mt-8 flex flex-wrap justify-center gap-2">
             {EXAMPLES.map((ex) => (
               <button
                 key={ex}
-                onClick={() => { setQuery(ex); }}
-                className="text-xs text-white/40 hover:text-gold bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-all duration-200"
+                onClick={() => setQuery(ex)}
+                className="text-xs text-white/30 hover:text-gold bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-gold/20 px-4 py-2 rounded-xl transition-all duration-200"
               >
                 {ex}
               </button>
@@ -133,20 +131,17 @@ export default function Hero() {
         </div>
       </section>
 
-      {/* Girih divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
-
       {/* Features */}
-      <section className="py-20 px-6">
+      <section className="relative z-10 py-20 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl font-extrabold text-ink mb-3">چرا دستیار؟</h2>
-            <p className="text-ink-secondary max-w-md mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-extrabold text-white mb-3">چرا دستیار؟</h2>
+            <p className="text-white/40 max-w-md mx-auto">
               پاسخ‌های دقیق‌تر، با منابع مشخص، بر اساس اسناد خودت
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-5">
             {[
               {
                 icon: (
@@ -155,16 +150,16 @@ export default function Hero() {
                   </svg>
                 ),
                 title: 'پاسخ مستند',
-                desc: 'هر پاسخ با منابع و استناد مشخص ارائه می‌شه تا بتونی تأییدش کنی',
+                desc: 'هر پاسخ با منابع و استناد مشخص ارائه میشه تا بتونی تأییدش کنی',
               },
               {
                 icon: (
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 ),
                 title: 'چند مدل هوش مصنوعی',
-                desc: 'از GPT-4o تا Claude و Gemini — مدلی که مناسب کارت هست رو انتخاب کن',
+                desc: 'از Qwen تا GPT — مدلی که مناسب کارت هست رو انتخاب کن',
               },
               {
                 icon: (
@@ -178,14 +173,13 @@ export default function Hero() {
             ].map((f, i) => (
               <div
                 key={f.title}
-                className="card hover:shadow-card-hover transition-all duration-300 group"
-                style={{ animationDelay: `${i * 0.1}s` }}
+                className="group bg-white/[0.04] border border-white/[0.06] hover:border-gold/20 hover:bg-white/[0.07] rounded-3xl p-7 transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center text-gold mb-4 group-hover:bg-gold/20 transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center text-gold mb-5 group-hover:bg-gold/20 transition-colors">
                   {f.icon}
                 </div>
-                <h3 className="text-lg font-extrabold text-ink mb-2">{f.title}</h3>
-                <p className="text-ink-secondary text-sm leading-7">{f.desc}</p>
+                <h3 className="text-white font-bold text-base mb-2">{f.title}</h3>
+                <p className="text-white/35 text-sm leading-7">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -193,10 +187,10 @@ export default function Hero() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-stroke py-8 px-6">
+      <footer className="relative z-10 border-t border-white/[0.06] py-8 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <span className="text-ink-muted text-sm">دستیار — موتور پاسخ‌گوی هوش مصنوعی</span>
-          <Link href="/plans" className="text-gold text-sm hover:underline">پلن‌های اشتراک</Link>
+          <span className="text-white/20 text-sm">دستیار — موتور پاسخ‌گوی هوش مصنوعی</span>
+          <Link href="/plans" className="text-gold/60 hover:text-gold text-sm transition-colors">پلن‌های اشتراک</Link>
         </div>
       </footer>
     </div>

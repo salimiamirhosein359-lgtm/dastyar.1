@@ -16,8 +16,8 @@ export default function ChatMessage({ role, content, sources }: { role: string; 
 
   if (role === 'user') {
     return (
-      <div className="flex justify-start mb-5 animate-fade-in">
-        <div className="max-w-[85%] bg-gold/10 border border-gold/20 text-ink rounded-3xl rounded-tr-xl px-5 py-3.5 leading-8 whitespace-pre-wrap">
+      <div className="flex justify-end mb-5 animate-fade-in">
+        <div className="max-w-[80%] bg-lapis text-white rounded-3xl rounded-tl-xl px-5 py-3.5 leading-8 whitespace-pre-wrap">
           {content}
         </div>
       </div>
@@ -26,7 +26,7 @@ export default function ChatMessage({ role, content, sources }: { role: string; 
 
   return (
     <div className="flex justify-start mb-6 animate-fade-in">
-      <div className="max-w-[95%] w-full">
+      <div className="max-w-[92%] w-full">
         <div className="bg-white border border-stroke rounded-3xl rounded-tl-xl px-6 py-5 shadow-card">
           <div className="markdown-content text-ink leading-8">
             <ReactMarkdown>{content}</ReactMarkdown>
@@ -42,9 +42,9 @@ export default function ChatMessage({ role, content, sources }: { role: string; 
               </p>
               <div className="space-y-1.5">
                 {parsed.map((s, i) => (
-                  <div key={i} className="text-xs text-ink-secondary flex items-center gap-2 bg-paper-dark rounded-xl px-3 py-2">
-                    <span className="bg-gold/15 text-gold rounded-lg px-2 py-0.5 font-bold text-[10px] shrink-0">
-                      [{s.index ?? i + 1}]
+                  <div key={i} className="text-xs text-ink-secondary flex items-center gap-2 bg-paper rounded-xl px-3 py-2">
+                    <span className="bg-gold/10 text-gold rounded-lg px-2 py-0.5 font-bold text-[10px] shrink-0">
+                      {s.index ?? i + 1}
                     </span>
                     <span className="truncate">{s.title}</span>
                   </div>

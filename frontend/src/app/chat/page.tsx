@@ -168,23 +168,29 @@ export default function ChatPage() {
       <Sidebar currentId={currentId} onSelect={loadConversation} onNew={newChat} refreshKey={refreshKey} />
 
       <main className="flex-1 flex flex-col min-h-screen max-w-4xl mx-auto w-full px-4 pb-4">
+        {/* Header */}
         <header className="flex items-center justify-between py-4 pr-14 md:pr-0 shrink-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-extrabold text-ink flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center text-gold text-sm">د</span>
-              دستیار
-            </h1>
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gold to-gold-hover flex items-center justify-center shadow-sm shadow-gold/15">
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+              </div>
+              <span className="text-sm font-extrabold text-ink">دستیار</span>
+            </Link>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={toggleDocs} className={`p-2 rounded-xl transition-all ${showDocs ? 'bg-gold/20 text-gold' : 'text-ink-muted hover:text-ink hover:bg-ink/5'}`} title="اسناد من">
+            <button onClick={toggleDocs} className={`p-2 rounded-xl transition-all duration-200 ${showDocs ? 'bg-gold/10 text-gold' : 'text-ink-muted hover:text-ink-secondary hover:bg-ink/[0.03]'}`} title="اسناد من">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </button>
             <ModelSelector models={models} value={model} onChange={setModel} />
           </div>
         </header>
 
+        {/* Docs panel */}
         {showDocs && (
           <div className="bg-white border border-stroke rounded-2xl p-4 mb-4 animate-fade-in shadow-sm">
             <div className="flex items-center justify-between mb-3">
@@ -192,13 +198,13 @@ export default function ChatPage() {
               <Link href="/documents" className="text-xs text-gold hover:underline">مدیریت کامل</Link>
             </div>
             {docs.length === 0 ? (
-              <p className="text-ink-muted text-xs py-3 text-center">هنوز سندی آپلود نشده</p>
+              <p className="text-ink-muted text-xs py-3 text-center bg-paper rounded-xl">هنوز سندی آپلود نشده</p>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                 {docs.filter(d => d.status === 'ready').map((d) => (
                   <div key={d.id} className="flex items-center gap-2 bg-paper rounded-xl px-3 py-2 text-xs">
                     <svg className="w-4 h-4 text-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c0 .621-.504 1.125-1.125 1.125V11.25a9 9 0 00-9-9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                     <span className="truncate text-ink">{d.title}</span>
                   </div>
@@ -208,6 +214,7 @@ export default function ChatPage() {
           </div>
         )}
 
+        {/* Web results panel */}
         {webResults.length > 0 && (
           <div className="bg-white border border-stroke rounded-2xl p-4 mb-4 animate-fade-in shadow-sm">
             <div className="flex items-center justify-between mb-3">
@@ -217,7 +224,7 @@ export default function ChatPage() {
                 </svg>
                 نتایج جستجوی وب
               </h3>
-              <button onClick={() => setWebResults([])} className="text-xs text-ink-muted hover:text-ink">
+              <button onClick={() => setWebResults([])} className="text-ink-muted hover:text-ink p-1 rounded-lg hover:bg-ink/[0.03] transition-all">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -225,25 +232,25 @@ export default function ChatPage() {
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {webResults.map((r, i) => (
-                <a key={i} href={r.url} target="_blank" rel="noopener" className="block group">
+                <a key={i} href={r.url} target="_blank" rel="noopener" className="block group bg-paper rounded-xl px-3 py-2.5 hover:bg-gold/5 transition-colors">
                   <p className="text-sm font-bold text-ink group-hover:text-gold transition-colors truncate">{r.title}</p>
-                  <p className="text-xs text-ink-muted line-clamp-2">{r.snippet}</p>
-                  <p className="text-xs text-blue-500/60 truncate mt-0.5">{r.url}</p>
+                  <p className="text-xs text-ink-muted line-clamp-2 mt-0.5">{r.snippet}</p>
                 </a>
               ))}
             </div>
           </div>
         )}
 
+        {/* Messages */}
         <div className="flex-1 overflow-y-auto scrollbar-thin py-4">
           {messages.length === 0 && (
-            <div className="text-center py-20 animate-fade-in">
-              <div className="w-16 h-16 rounded-3xl bg-gold/10 flex items-center justify-center mx-auto mb-5 animate-float">
+            <div className="text-center py-24 animate-fade-in">
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-gold/15 to-gold/5 flex items-center justify-center mx-auto mb-6 animate-float">
                 <svg className="w-8 h-8 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-extrabold text-ink mb-2">هر سوالی داری بپرس</h2>
+              <h2 className="text-xl font-extrabold text-ink mb-2">هر سوالی داری بپرس</h2>
               <p className="text-ink-secondary text-sm max-w-sm mx-auto leading-7">
                 پاسخ‌ها بر اساس اسناد آپلود شده و منابع معتبر ارائه می‌شن.
               </p>
@@ -262,6 +269,7 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
+        {/* Input */}
         <div className="sticky bottom-0 pt-2 pb-1 bg-paper">
           <ChatInput
             onSend={send}

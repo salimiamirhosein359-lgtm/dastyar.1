@@ -29,15 +29,16 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-lapis relative overflow-hidden flex items-center justify-center px-4">
       <div className="absolute inset-0 girih-pattern opacity-[0.03]" />
-      <div className="absolute top-20 left-20 w-80 h-80 bg-gold/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-20 w-60 h-60 bg-gold/5 rounded-full blur-3xl" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gold/5 rounded-full blur-[100px]" />
 
       <div className="relative w-full max-w-md animate-slide-up">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gold/20 flex items-center justify-center">
-              <span className="text-gold text-2xl font-extrabold">د</span>
+          <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gold to-gold-hover flex items-center justify-center shadow-lg shadow-gold/20">
+              <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
             </div>
           </Link>
           <h1 className="text-white text-3xl font-extrabold mb-2">خوش آمدی</h1>
