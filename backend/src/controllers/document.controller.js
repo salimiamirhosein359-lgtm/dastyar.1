@@ -12,12 +12,18 @@ async function uploadDocument(req, res) {
     const userId = req.user.id;
     let content = '';
 
-    if (file.mimetype === 'application/pdf') {
-      content = file.buffer.toString('latin1');
-    } else if (file.mimetype.includes('word') || file.mimetype.includes('document')) {
+    if (file.mimetype === 'text/plain' || file.mimetype === 'text/csv') {
+      content = file.buffer.toString('utf-8');
+    } else if (file.mimetype === 'application/json') {
+      content = file.buffer.toString('utf-8');
+    } else if (file.mimetype.startsWith('text/')) {
       content = file.buffer.toString('utf-8');
     } else {
-      content = file.buffer.toString('utf-8');
+      content = file.buffer.toString('utf-8').substring(0, 5000);
+    }
+
+    if (!content || content.trim().length === 0) {
+      content = `[فایل: ${file.originalname} — محتوا قابل استخراج نیست]`;
     }
 
     const document = await prisma.document.create({

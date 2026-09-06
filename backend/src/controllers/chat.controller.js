@@ -86,11 +86,8 @@ async function sendMessage(req, res) {
     });
   } catch (error) {
     logger.error('sendMessage error:', error.message);
-    if (error.message && !error.message.includes('Prisma') && !error.message.includes('ECONNREFUSED')) {
-      res.status(500).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: 'خطای داخلی سرور' });
-    }
+    const isDev = process.env.NODE_ENV !== 'production';
+    res.status(500).json({ error: isDev ? error.message : 'خطای داخلی سرور' });
   }
 }
 
@@ -204,8 +201,8 @@ async function streamMessage(req, res) {
     res.end();
   } catch (error) {
     logger.error('streamMessage error:', error.message);
-    const safeMsg = error.message && !error.message.includes('Prisma') && !error.message.includes('ECONNREFUSED')
-      ? error.message : 'خطا در دریافت پاسخ';
+    const isDev = process.env.NODE_ENV !== 'production';
+    const safeMsg = isDev ? error.message : 'خطا در دریافت پاسخ';
     res.write('data: ' + JSON.stringify({ type: 'error', error: safeMsg }) + '\n\n');
     res.end();
   }
