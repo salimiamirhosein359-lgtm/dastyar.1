@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/Sidebar';
@@ -33,8 +32,6 @@ export default function ChatPage() {
   const [models, setModels] = useState<any[]>([]);
   const [model, setModel] = useState('qwen3-8b');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showDocs, setShowDocs] = useState(false);
-  const [docs, setDocs] = useState<any[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [searchActive, setSearchActive] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -63,21 +60,8 @@ export default function ChatPage() {
     }
   }, [user]);
 
-  const loadDocs = async () => {
-    try {
-      const d = await api.documents.list();
-      setDocs(d.documents || []);
-    } catch {}
-  };
-
-  const toggleDocs = () => {
-    if (!showDocs) loadDocs();
-    setShowDocs(!showDocs);
-  };
-
   const loadConversation = async (id: string) => {
     setCurrentId(id);
-    setShowDocs(false);
     try {
       const d = await api.conversations.get(id);
       const conv = d.conversation || d;
@@ -88,7 +72,6 @@ export default function ChatPage() {
   const newChat = () => {
     setCurrentId(null);
     setMessages([]);
-    setShowDocs(false);
     setWebResults([]);
   };
 
@@ -172,53 +155,18 @@ export default function ChatPage() {
         <div className="sticky top-0 z-10 bg-[#f5f3ee]/80 backdrop-blur-xl border-b border-stroke">
           <div className="flex items-center justify-between h-14 px-4 md:px-6 max-w-5xl mx-auto">
             {/* Right side - brand */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleDocs}
-                className={`p-2 rounded-xl transition-all duration-200 ${showDocs ? 'bg-gold/10 text-gold' : 'text-ink-muted hover:text-ink-secondary hover:bg-stroke-light'}`}
-                title="اسناد من"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                </svg>
-              </button>
-              {currentId && messages.length > 0 && (
-                <div className="hidden md:flex items-center gap-1.5">
-                  <span className="text-xs text-ink-muted/50">گفتگو فعال</span>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center gap-3">
+            {currentId && messages.length > 0 && (
+              <div className="hidden md:flex items-center gap-1.5">
+                <span className="text-xs text-ink-muted/50">گفتگو فعال</span>
+              </div>
+            )}
+          </div>
 
             {/* Left side - model */}
             <ModelSelector models={models} value={model} onChange={setModel} />
           </div>
         </div>
-
-        {/* Docs panel */}
-        {showDocs && (
-          <div className="max-w-5xl mx-auto w-full px-4 pt-3 animate-fade-in">
-            <div className="bg-white border border-stroke rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-extrabold text-ink text-sm">اسناد من</h3>
-                <Link href="/documents" className="text-xs text-gold hover:underline font-medium">مدیریت کامل</Link>
-              </div>
-              {docs.length === 0 ? (
-                <p className="text-ink-muted text-xs py-4 text-center bg-paper rounded-xl">هنوز سندی آپلود نشده</p>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-36 overflow-y-auto">
-                  {docs.filter(d => d.status === 'ready').map((d) => (
-                    <div key={d.id} className="flex items-center gap-2 bg-paper rounded-xl px-3 py-2.5 text-xs border border-stroke-light">
-                      <svg className="w-4 h-4 text-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                      </svg>
-                      <span className="truncate text-ink font-medium">{d.title}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Web results panel */}
         {webResults.length > 0 && (
