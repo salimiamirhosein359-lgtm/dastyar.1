@@ -31,7 +31,20 @@ function proxyRequest(hostname, path) {
         tlsSocket.on('end', () => {
           const idx = buf.indexOf('\r\n\r\n');
           let body = idx >= 0 ? buf.substring(idx + 4) : buf;
-          body = body.replace(/^[0-9a-f]+\r\n/i, '');
+          try {
+            let decoded = '';
+            let pos = 0;
+            while (pos < body.length) {
+              const chunkSizeMatch = body.substring(pos).match(/^([0-9a-fA-F]+)\r\n/);
+              if (!chunkSizeMatch) break;
+              const chunkSize = parseInt(chunkSizeMatch[1], 16);
+              if (chunkSize === 0) break;
+              pos += chunkSizeMatch[0].length;
+              decoded += body.substring(pos, pos + chunkSize);
+              pos += chunkSize + 2;
+            }
+            if (decoded) body = decoded;
+          } catch {}
           try { resolve(JSON.parse(body)); } catch { resolve(body); }
         });
         tlsSocket.on('error', reject);
@@ -41,7 +54,7 @@ function proxyRequest(hostname, path) {
       }
     };
     proxySocket.on('data', onProxyData);
-    proxySocket.on('error', reject);
+    proxySocket.on('error', (e) => reject(new Error('Proxy error: ' + e.message)));
     proxySocket.on('timeout', () => { proxySocket.destroy(); reject(new Error('timeout')); });
   });
 }
@@ -53,6 +66,8 @@ async function searchWeb(query, numResults = 5) {
       'api.duckduckgo.com',
       `/?q=${encoded}&format=json&no_html=1&skip_disambig=1`
     );
+
+    if (typeof data !== 'object' || !data) return [];
 
     const results = [];
 
