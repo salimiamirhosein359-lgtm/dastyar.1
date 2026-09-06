@@ -468,7 +468,9 @@ async function streamAIResponse(userMessage, conversationContext, sourceDocs, mo
       if (chunk) hasContent = true;
       onChunk(chunk);
     };
+    logger.info(`[streamAI] model=${modelId} provider=${provider.name} msgs=${messages.length} webResults=${webResults.length}`);
     const result = await provider.stream(modelId, messages, wrappedOnChunk);
+    logger.info(`[streamAI] done: hasContent=${hasContent} contentLen=${result.content?.length || 0}`);
     if (!hasContent || !result.content) {
       const fallback = 'متأسفانه نتونستم پاسخ مناسبی تولید کنم. لطفاً سوالتون رو ساده‌تر بپرسید یا سند دیگه‌ای آپلود کنید.';
       onChunk(fallback);

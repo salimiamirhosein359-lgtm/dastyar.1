@@ -147,7 +147,7 @@ async function streamMessage(req, res) {
     await streamAIResponse(content, context, sources, model, userId, (chunk) => {
       fullContent += chunk;
       res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
-    });
+    }, webResults);
 
     const saved = await prisma.message.create({
       data: {
