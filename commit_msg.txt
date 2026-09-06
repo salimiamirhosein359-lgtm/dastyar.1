@@ -1,1 +1,1 @@
-feat: Gap 5 - Multi-model orchestration - route by intent
+feat: Gap 6 - Smart conversation memory - context-aware follow-up

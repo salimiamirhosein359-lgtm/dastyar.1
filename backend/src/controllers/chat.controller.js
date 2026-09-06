@@ -4,6 +4,7 @@ const { searchWeb } = require('../services/search.service');
 const { rewriteQuery } = require('../services/query.service');
 const { rerankResults } = require('../services/rerank.service');
 const { selectModel } = require('../services/model-router.service');
+const { detectFollowUp, buildContextualSearchQuery, shouldReSearch } = require('../services/memory.service');
 const logger = require('../config/logger');
 const prisma = new PrismaClient();
 
@@ -124,21 +125,32 @@ async function streamMessage(req, res) {
     const queryInfo = await rewriteQuery(content, context);
     const modelRoute = selectModel(queryInfo, model);
     const selectedModel = modelRoute.modelId;
-    logger.info(`[QueryRewrite] intent=${queryInfo.intent} search="${queryInfo.searchQuery}"`);
+
+    const followUpInfo = detectFollowUp(contextMessages);
+    let searchQuery = queryInfo.searchQuery;
+    if (followUpInfo.isFollowUp) {
+      searchQuery = buildContextualSearchQuery(queryInfo.searchQuery, context, followUpInfo.topic);
+      logger.info(`[Memory] Follow-up detected, topic="${followUpInfo.topic}" enhancedQuery="${searchQuery.substring(0, 80)}"`);
+    }
+
+    logger.info(`[QueryRewrite] intent=${queryInfo.intent} search="${searchQuery.substring(0, 80)}"`);
     logger.info(`[ModelRouter] selected=${selectedModel} reason=${modelRoute.reason}`);
 
-    let sources = await searchDocuments(queryInfo.searchQuery, userId);
+    let sources = await searchDocuments(searchQuery, userId);
     const docSources = await getDocumentContent(documentIds, userId);
     sources = [...docSources, ...sources];
 
     let webResults = [];
     if (searchActive) {
       try {
-        webResults = await searchWeb(queryInfo.searchQuery, 8);
-        if (webResults.length === 0 && queryInfo.expandedQuery !== queryInfo.searchQuery) {
-          webResults = await searchWeb(queryInfo.expandedQuery, 8);
+        const shouldSearch = shouldReSearch(followUpInfo.isFollowUp, queryInfo.intent, null, content);
+        if (shouldSearch) {
+          webResults = await searchWeb(searchQuery, 8);
+          if (webResults.length === 0 && queryInfo.expandedQuery !== queryInfo.searchQuery) {
+            webResults = await searchWeb(queryInfo.expandedQuery, 8);
+          }
+          webResults = rerankResults(searchQuery, webResults).slice(0, 5);
         }
-        webResults = rerankResults(queryInfo.searchQuery, webResults).slice(0, 5);
       } catch (e) {
         logger.error('Web search failed:', e.message);
       }
