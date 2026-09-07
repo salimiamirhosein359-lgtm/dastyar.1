@@ -3,11 +3,7 @@ const tls = require('tls');
 const { getCache, setCache } = require('../config/redis');
 const { hybridSearch } = require('./retrieval.service');
 const logger = require('../config/logger');
-
-// ─── Proxy Tunnel for Groq (1VPN free proxy) ────────────────
-const PROXY_HOST = 'free-los-angeles-https-1.cloudburstcdn.com';
-const PROXY_PORT = 443;
-const PROXY_AUTH = 'Basic ' + Buffer.from('REDACTED_USER:REDACTED_PASS').toString('base64');
+const { PROXY_HOST, PROXY_PORT, PROXY_AUTH } = require('../config/proxy');
 
 function groqProxyStream(apiPath, body, onChunk) {
   return new Promise((resolve, reject) => {
@@ -433,8 +429,9 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
   ];
 
   const contextHash = JSON.stringify(conversationContext.map(m => m.content?.slice(0, 50)));
+  const webHash = JSON.stringify(webResults.map(r => r.url || r.title || '').sort());
   const cacheKey = 'resp:' + require('crypto').createHash('md5')
-    .update(userMessage + contextHash + JSON.stringify(sourceDocs.map(d => d.chunkId || d.content?.slice(0, 100))))
+    .update(userMessage + contextHash + JSON.stringify(sourceDocs.map(d => d.chunkId || d.content?.slice(0, 100))) + webHash)
     .digest('hex');
   const cached = await getCache(cacheKey);
   if (cached) return { ...cached, cached: true };
@@ -462,7 +459,7 @@ async function generateAIResponse(userMessage, conversationContext, sourceDocs =
     const fallback = getFallbackModel(modelId, triedModels);
     if (fallback) {
       logger.info(`Falling back to ${fallback.provider}/${fallback.modelId}`);
-      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId, triedModels);
+      return generateAIResponse(userMessage, conversationContext, sourceDocs, fallback.modelId, userId, triedModels, webResults);
     }
 
     if (error.status === 429) throw new Error('محدودیت تعداد درخواست. لطفاً چند لحظه صبر کنید.');

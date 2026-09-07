@@ -1,10 +1,7 @@
 const https = require('https');
 const tls = require('tls');
 const logger = require('../config/logger');
-
-const PROXY_HOST = 'free-los-angeles-https-1.cloudburstcdn.com';
-const PROXY_PORT = 443;
-const PROXY_AUTH = 'Basic ' + Buffer.from('REDACTED_USER:REDACTED_PASS').toString('base64');
+const { PROXY_HOST, PROXY_PORT, PROXY_AUTH } = require('../config/proxy');
 
 const SERPER_API_KEY = process.env.SERPER_API_KEY || '';
 
