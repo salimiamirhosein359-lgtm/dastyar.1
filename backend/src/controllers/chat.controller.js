@@ -22,10 +22,16 @@ async function getDocumentContent(docIds, userId) {
   }));
 }
 
+function validateModelChoice(requestedModelId) {
+  if (!requestedModelId || requestedModelId === 'auto') return null;
+  return getAvailableModels().some(model => model.id === requestedModelId) ? requestedModelId : null;
+}
+
 async function sendMessage(req, res) {
   try {
     const { conversationId } = req.params;
-    const { content, model, documentIds } = req.body;
+    const { content, model: requestedModel, documentIds } = req.body;
+    const model = validateModelChoice(requestedModel);
     const userId = req.user.id;
 
     const conversation = await prisma.conversation.findUnique({
@@ -94,7 +100,7 @@ async function sendMessage(req, res) {
 async function streamMessage(req, res) {
   try {
     const { conversationId } = req.params;
-    const { content, model, documentIds, searchActive, deepResearchMode } = req.body;
+    const { content, model: requestedModel, documentIds, searchActive, deepResearchMode } = req.body;
     const userId = req.user.id;
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -121,6 +127,7 @@ async function streamMessage(req, res) {
     const context = contextMessages.map(m => ({ role: m.role, content: m.content }));
 
     const queryInfo = await rewriteQuery(content, context);
+    const model = validateModelChoice(requestedModel);
     const modelRoute = selectModel(queryInfo, model);
     const selectedModel = modelRoute.modelId;
 
@@ -139,7 +146,7 @@ async function streamMessage(req, res) {
     sources = [...docSources, ...sources];
 
     let webResults = [];
-    if (searchActive) {
+    if (searchActive || deepResearchMode) {
       try {
         if (deepResearchMode) {
           logger.info(`[DeepResearch] Mode activated for: "${content.substring(0, 50)}"`);
@@ -147,11 +154,12 @@ async function streamMessage(req, res) {
 
           const researchResult = await deepResearch(content, context, {
             maxIterations: 3,
+            sourceDocs: sources,
             onProgress: (progress) => {
-              res.write('data: ' + JSON.stringify({ type: 'deepResearchProgress', ...progress }) + '\n\n');
+              res.write('data: ' + JSON.stringify({ type: 'progress', ...progress }) + '\n\n');
             }
           });
-          webResults = researchResult.sources;
+          webResults = researchResult.allSources || researchResult.sources || [];
           logger.info(`[DeepResearch] Complete: ${webResults.length} sources from ${researchResult.iterations} iterations`);
         } else {
           const shouldSearch = shouldReSearch(followUpInfo.isFollowUp, queryInfo.intent, null, content);
@@ -217,4 +225,4 @@ async function getModels(req, res) {
   }
 }
 
-module.exports = { sendMessage, streamMessage, getModels };
+module.exports = { sendMessage, streamMessage, getModels, validateModelChoice };

@@ -24,6 +24,7 @@ export default function ModelSelector({
         onChange={(e) => onChange(e.target.value)}
         className="appearance-none bg-white border border-stroke rounded-2xl pl-8 pr-4 py-2.5 text-sm text-ink font-medium focus:outline-none focus:ring-2 focus:ring-gold/20 focus:border-gold cursor-pointer"
       >
+        <option value="">انتخاب خودکار</option>
         {models.map((m) => (
           <option key={m.id} value={m.id}>
             {m.label || m.name || m.id}

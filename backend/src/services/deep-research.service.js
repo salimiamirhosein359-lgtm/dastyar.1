@@ -30,7 +30,7 @@ function computeSourceOverlap(sources) {
 }
 
 async function deepResearch(query, conversationContext = [], options = {}) {
-  const { maxIterations = MAX_ITERATIONS, onProgress = null } = options;
+  const { maxIterations = MAX_ITERATIONS, onProgress = null, sourceDocs = [] } = options;
   const allSources = [];
   const searchQueries = [];
   let iteration = 0;
@@ -46,12 +46,13 @@ async function deepResearch(query, conversationContext = [], options = {}) {
     searchQueries.push(currentSearchQuery);
 
     if (onProgress) {
-      onProgress({ type: 'iteration', iteration, query: currentSearchQuery, totalSources: allSources.length });
+      onProgress({ type: 'iteration', step: 'searching', iteration, query: currentSearchQuery, totalSources: allSources.length });
     }
 
     try {
       const results = await searchWeb(currentSearchQuery, MAX_SOURCES_PER_ITERATION);
       const ranked = rerankResults(currentSearchQuery, results);
+      if (onProgress) onProgress({ type: 'reading', step: 'reading', iteration, sources: ranked.slice(0, 3).map(s => s.title || s.url) });
 
       for (const r of ranked) {
         if (!allSources.find(s => s.url === r.url)) {
@@ -83,6 +84,8 @@ async function deepResearch(query, conversationContext = [], options = {}) {
 
   return {
     sources: finalSources,
+    allSources: finalSources,
+    sourceDocs,
     iterations: iteration,
     queries: searchQueries,
     queryInfo

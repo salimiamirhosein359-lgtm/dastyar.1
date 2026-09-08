@@ -30,7 +30,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
   const [models, setModels] = useState<any[]>([]);
-  const [model, setModel] = useState('qwen3-8b');
+  const [model, setModel] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [searchActive, setSearchActive] = useState(false);
@@ -45,7 +45,6 @@ export default function ChatPage() {
     if (!user) return;
     api.chat.models().then((d) => {
       setModels(d.models || []);
-      if (d.models?.length > 0) setModel(d.models[0].id);
     }).catch(() => {});
   }, [user]);
 
