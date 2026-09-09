@@ -27,6 +27,18 @@ function validateModelChoice(requestedModelId) {
   return getAvailableModels().some(model => model.id === requestedModelId) ? requestedModelId : null;
 }
 
+function buildConversationTitle(content) {
+  const stopWords = new Set(['است','هست','برای','درباره','این','آن','یک','را','رو','به','از','در','که','چی','چیه','لطفا','لطفاً','میشه','میشود','کن','کنید','توضیح','بده','what','is','the','a','an','about','please','explain','how','to']);
+  const words = String(content || '').match(/[\u0600-\u06FF\w-]{2,}/g) || [];
+  const meaningful = words.filter(word => !stopWords.has(word.toLowerCase()));
+  return ((meaningful.length ? meaningful : words).slice(0, 3).join(' ') || 'گفتگوی جدید').slice(0, 48);
+}
+
+function isUntitledConversation(title) {
+  const value = String(title || '').trim();
+  return !value || value === 'گفتگوی جدید' || value.includes('جدید');
+}
+
 async function sendMessage(req, res) {
   try {
     const { conversationId } = req.params;
@@ -74,8 +86,8 @@ async function sendMessage(req, res) {
     });
 
     const msgCount = await prisma.message.count({ where: { conversationId } });
-    if (msgCount <= 2 && conversation.title.includes('جدید')) {
-      const title = content.length > 60 ? content.substring(0, 60).trim() + '...' : content.trim();
+    if (msgCount <= 2 && isUntitledConversation(conversation.title)) {
+      const title = buildConversationTitle(content);
       await prisma.conversation.update({ where: { id: conversationId }, data: { title } }).catch(() => {});
     }
 
@@ -197,8 +209,8 @@ async function streamMessage(req, res) {
     });
 
     const msgCount = await prisma.message.count({ where: { conversationId } });
-    if (msgCount <= 2 && conversation.title.includes('جدید')) {
-      const title = content.length > 60 ? content.substring(0, 60).trim() + '...' : content.trim();
+    if (msgCount <= 2 && isUntitledConversation(conversation.title)) {
+      const title = buildConversationTitle(content);
       await prisma.conversation.update({ where: { id: conversationId }, data: { title } }).catch(() => {});
     }
     if (model && model !== conversation.model) {

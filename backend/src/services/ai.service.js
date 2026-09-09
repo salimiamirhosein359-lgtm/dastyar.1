@@ -502,9 +502,9 @@ async function streamAIResponse(userMessage, conversationContext, sourceDocs, mo
 
 // ─── Model Selection Helpers ────────────────────────────────
 function getBestAvailableModel() {
-  if (providers.groq.isAvailable()) return 'gpt-oss-120b';
+  if (providers.groq.isAvailable() && providers.groq.models['gpt-oss-120b']) return 'gpt-oss-120b';
   if (providers.gemini.isAvailable()) return 'gemini-1.5-flash';
-  if (providers.groq.isAvailable()) return 'qwen3-8b';
+  if (providers.groq.isAvailable() && providers.groq.models['qwen3-8b']) return 'qwen3-8b';
   if (providers.openai.isAvailable()) return 'gpt-4o-mini';
   if (providers.anthropic.isAvailable()) return 'claude-3-haiku';
   if (providers.sambanova.isAvailable()) return 'deepseek-v3';
